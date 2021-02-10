@@ -1,3 +1,7 @@
+- defaults:
+    shell:
+      stdout: true
+
 - clean: ['~']
 
 - link:
@@ -7,5 +11,12 @@
     ~/.bash_logout: bash_logout
     ~/.gitconfig: gitconfig
     ~/.zshrc: zshrc
+    ~/.antigenrc: antigenrc
 
 
+- shell:
+    if [ -d ~/.emacs.d ]; then echo "emacs configuration - already installed"; else git clone https://github.com/purcell/emacs.d.git ~/.emacs.d; fi
+    if [ -d ${ZSH} ]; then echo "oh-my-zsh already installed"; else sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"; fi
+    if [ -d ~/.antigen ]; then echo "antigen - already installed"; else curl -L git.io/antigen.zsh; fi
+    if [ -d ~/.renv ]; then echo "renv-installer - already installed"; else git clone https://github.com/jcrodriguez1989/renv-installer.git ~/.renv; fi
+    if [ -d ~/.tmux ]; then echo "tmux configuration - already installed"; else git clone https://github.com/gpakosz/tmux.git ~/.tmux; ln -s -f ~/.tmux/.tmux.conf; cp .tmux/.tmux.conf.local ~/.tmux.conf.local; fi

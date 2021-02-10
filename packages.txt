@@ -1,0 +1,177 @@
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt install texlive-full --install-suggests --fix-missing
+Commandline: apt autoremove
+Commandline: apt install xzdec
+Commandline: apt purge texlive-full
+Commandline: apt autoremove
+Commandline: apt-get install autoconf automake g++ gcc libpng-dev libpoppler-dev libpoppler-glib-dev libpoppler-private-dev libz-dev make pkg-config
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt --fix-broken install
+Commandline: apt install --install-recommends winehq-stable
+Commandline: apt install winetricks
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt install curl g++ gcc autoconf automake bison libc6-dev libffi-dev libgdbm-dev libncurses5-dev libsqlite3-dev libtool libyaml-dev make pkg-config sqlite3 zlib1g-dev libgmp-dev libreadline-dev libssl-dev
+Commandline: apt install python-pip
+Commandline: apt install python3-pip
+Commandline: apt install python-pytest
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt install python3.8
+Commandline: apt install /home/bobo51881/Downloads/zoom_amd64.deb
+Commandline: apt install clipgrab
+Commandline: apt install ubuntu-restricted-extras
+Commandline: packagekit role='install-packages'
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt install r-base-dev
+Commandline: apt install elpa-ess
+Commandline: apt install r-doc-info
+Commandline: apt install r-mathlib
+Commandline: apt autoremove
+Commandline: apt install libxml2-dev
+Commandline: apt install libcurl4-openssl-dev
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt install python3-venv
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt install libdrm-dev
+Commandline: apt upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt install pandoc
+Commandline: apt upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt install direnv
+Commandline: apt install silversearcher-ag
+Commandline: apt-get install libgsl-dev
+Commandline: apt install --no-install-recommends yarn
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt install ack-grep
+Commandline: apt install haskell-platform
+Commandline: apt install firefox
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt install libcap-dev
+Commandline: apt install libacl1-dev
+Commandline: apt install libselinux1-dev
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt install docker-compose
+Commandline: apt install postgresql postgresql-contrib
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt install albert
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt remove emacs26
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: /usr/bin/unattended-upgrade
+Commandline: apt upgrade
+Commandline: apt autoremove
+Commandline: apt upgrade
+Commandline: apt upgrade
+Commandline: apt install caffeine
+Commandline: apt install zsh
