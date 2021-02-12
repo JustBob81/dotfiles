@@ -1,66 +1,66 @@
 - apt:
-    xzdec
-    autoconf
-    automake
-    curl
-    bison
-    libc6-dev
-    libffi-deve
-    libgdbm-dev
-    libsqlite3-dev
-    libtool
-    libyaml-dev
-    sqlite3
-    zlib1g-dev
-    libgmp-dev
-    libreadline-dev
-    libssl-dev
-    g++
-    gcc
-    libpng-dev
-    libpoppler-dev
-    libpoppler-glib-dev
-    libpoppler-private-dev
-    libz-dev
-    make
-    pkg-config
+    xzdec *
+    autoconf *
+    automake *
+    curl *
+    bison *
+    libc6-dev *
+    libffi-dev *
+    libgdbm-dev *
+    libsqlite3-dev *
+    libtool *
+    libyaml-dev *
+    sqlite3 *
+    zlib1g-dev *
+    libgmp-dev *
+    libreadline-dev *
+    libssl-dev *
+    g++ *
+    gcc *
+    libpng-dev *
+    libpoppler-dev *
+    libpoppler-glib-dev *
+    libpoppler-private-dev *
+    libz-dev *
+    make *
+    pkg-config *
     python-pip
     python3-pip
     python-pytest
     clipgrab
-    build-essential
-    libbz2-dev
-    wget
-    llvm
-    libncurses5-dev
-    xz-utils
-    tk-dev
-    libxml2-dev
-    libxmlsec1-dev
-    libffi-dev
-    liblzma-dev
-    r-base-dev
-    elpa-ess
-    r-doc-info
-    r-mathlib
-    libdrm-dev
-    pandoc
-    direnv
-    silversearcher-ag
-    libgsl-dev
+    build-essential *
+    libbz2-dev *
+    wget *
+    llvm *
+    libncurses5-dev *
+    xz-utils *
+    tk-dev *
+    libxml2-dev *
+    libxmlsec1-dev *
+    libffi-dev *
+    liblzma-dev *
+    r-base-dev *
+    elpa-ess *
+    r-doc-info *
+    r-mathlib *
+    libdrm-dev *
+    pandoc *
+    direnv *
+    silversearcher-ag *
+    libgsl-dev *
     --no-install-recommends yarn
-    ack-grep
-    haskell-platform
+    ack-grep *
+    haskell-platform *
     firefox
-    libcap-dev
-    libacl1-dev
-    libselinux1-dev
+    libcap-dev *
+    libacl1-dev *
+    libselinux1-dev *
     docker-compose
-    postgresql
-    postgresql-contrib
-    albert
-    caffeine
-    zsh
+    postgresql *
+    postgresql-contrib *
+    albert *
+    caffeine *
+    zsh *
     brave-browser
-    gnupg
-    apt-transport-https
+    gnupg *
+    apt-transport-https *
