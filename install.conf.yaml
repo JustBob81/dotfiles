@@ -14,24 +14,9 @@
     ~/.antigenrc: antigenrc
 
 - sudo:
-    - snap:
-        - gimp
-        - emacs
     - shell:
         -
-          command: curl -s https://brave-browser-apt-release.s3.brave.com/brave-core.asc | apt-key --keyring /etc/apt/trusted.gpg.d/brave-browser-release.gpg add - & echo "deb [arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main" | tee /etc/apt/sources.list.d/brave-browser-release.list
-          description: add brave-browser repository
-        -
-          command: curl https://build.opensuse.org/projects/home:manuelschneid3r/public_key | apt-key add - & echo "deb http://download.opensuse.org/repositories/home:/manuelschneid3r/xUbuntu_$(lsb_release -rs)/ /" | tee /etc/apt/sources.list.d/home:manuelschneid3r.list & wget -nv "https://download.opensuse.org/repositories/home:manuelschneid3r/xUbuntu_$(lsb_release -rs)/Release.key" -O "/etc/apt/trusted.gpg.d/home:manuelschneid3r.asc"
-          description: add albert repository
-        -
-          command: apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB & add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
-          description: add r repository
-        -
-          command: curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - & echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-          description: add yarn repository
-        -
-          command: gpg --keyserver hkp://pool.sks-keyservers.net --recv-keys 409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB & sudo apt-add-repository -y ppa:rael-gc/rvm
+          command: ./add_repositories.sh
           description: add rvm repository
         -
           command: apt update
@@ -43,7 +28,7 @@
           command: apt install -y libreadline-dev xzdec libyaml-dev zlib1g-dev libpng-dev libz-dev libbz2-dev libncurses5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev libgsl-dev libcap-dev libacl1-dev libselinux1-dev libdrm-dev
           description: install supporting libraries
         -
-          command: apt install -y curl wget zsh libssl-dev dirmngr gnupg apt-transport-https ca-certificates software-properties-common direnv pandoc silversearcher-ag ack caffeine git-core imagemagick
+          command: apt install -y curl wget zsh libssl-dev dirmngr gnupg apt-transport-https ca-certificates software-properties-common direnv pandoc silversearcher-ag ack caffeine git-core imagemagick snapd ripgrep simple-scan shellcheck yamllint
           description: install system tools
         -
           command: apt install -y libgdbm-dev libsqlite3-dev sqlite3 postgresql postgresql-contrib
@@ -54,6 +39,9 @@
         -
           command: apt install -y libpoppler-dev libpoppler-glib-dev libpoppler-private-dev
           description: install poppler
+        -
+          command: apt install -y texlive-full
+          description: install latex
         -
           command: apt install -y r-base-dev r-doc-info r-mathlib elpa-ess
           description: install r
@@ -69,13 +57,12 @@
         -
           command: apt install -y brave-browser
           description: install brave
+    - snap:
+        - gimp
+        - emacs
+        - zoom-client
 
 - shell:
-    - if [ -d ~/.emacs.d ]; then echo "emacs configuration - already installed"; else git clone https://github.com/purcell/emacs.d.git ~/.emacs.d; fi
-    - if [ -d ${ZSH} ]; then echo "oh-my-zsh already installed"; else sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"; fi
-    - if [ -d ~/.antigen ]; then echo "antigen - already installed"; else curl -L git.io/antigen.zsh; fi
-    - if [ -d ~/.renv ]; then echo "renv-installer - already installed"; else git clone https://github.com/jcrodriguez1989/renv-installer.git ~/.renv; fi
-    - if [ -d ~/.pyenv ]; then echo "pyenv - already installed"; else  git clone https://github.com/pyenv/pyenv.git ~/.pyenv; fi
-    - if [ -d ~/.tmux ]; then echo "tmux configuration - already installed"; else git clone https://github.com/gpakosz/.tmux.git ~/.tmux; ln -s -f ~/.tmux/.tmux.conf ~/.tmux.conf; cp ~/.tmux/.tmux.conf.local ~/.tmux.conf.local; fi
-    - if [ -d ~/.nvm ]; then echo "nvm already installed"; else curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash; fi
-
+    -
+      command: ./non_package-install.sh
+      description: install non-package software
