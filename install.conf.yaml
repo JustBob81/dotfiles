@@ -11,6 +11,7 @@
     ~/.bash_logout: bash_logout
     ~/.gitconfig: gitconfig
     ~/.zshrc: zshrc
+    ~/.zshenv: zshenv
     ~/.antigenrc: antigenrc
 
 - sudo:
