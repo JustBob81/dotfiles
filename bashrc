@@ -124,3 +124,5 @@ export PIPENV_VENV_IN_PROJECT=1
 
 export NVM_DIR="/home/bobo51881/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+
+[ -f ~/.fzf.bash ] && source ~/.fzf.bash

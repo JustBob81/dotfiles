@@ -7,11 +7,21 @@ antigen bundle command-not-found
 antigen bundle docker
 antigen bundle pip
 antigen bundle direnv
+antigen bundle fzf
+antigen bundle kubectl
+antigen bundle gcloud
+antigen bundle encode64
+antigen bundle gitignore
+antigen bundle helm
+antigen bundle z
+antigen bundle kube-ps1
 
 # Load bundles from external repos.
 antigen bundle zsh-users/zsh-completions
 antigen bundle zsh-users/zsh-autosuggestions
 antigen bundle zsh-users/zsh-syntax-highlighting
+antigen bundle wookayin/fzf-fasd
+antigen bundle Aloxaf/fzf-tab
 
 # Select theme.
 antigen theme robbyrussell

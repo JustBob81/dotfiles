@@ -18,7 +18,7 @@
     - shell:
         -
           command: ./add_repositories.sh
-          description: add rvm repository
+          description: add non-standard repositories
         -
           command: apt update
           description: update sources
@@ -50,8 +50,11 @@
           command: apt install -y --no-install-recommends yarn
           description: install yarn
         -
-          command: apt install -y rvm & sudo usermod -a -G rvm "$(whoami)"
+          command: apt install -y rvm
           description: install rvm
+        -
+          command: usermod -a -G rvm "$(whoami)"
+          descrption: add user to rvm group
         -
           command: apt install -y albert
           description: install albert
@@ -59,12 +62,26 @@
           command: apt install -y brave-browser
           description: install brave
         -
-          command: sudo -v && wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin
-          description: install calibre
-    - snap:
-        - gimp
-        - emacs
-        - zoom-client
+          command: apt upgrade -y
+          description: upgrade apt packages
+        -
+          command: snap install gimp
+          description: install gimp
+        -
+          command: snap install emacs
+          description: install emacs
+        -
+          command: snap install zoom-client
+          description: install zoom
+        -
+          command: snap install fasd --beta
+          description: install fasd
+
+    # - snap:
+    #     - gimp
+    #     - emacs
+    #     - zoom-client
+        # - fasd --beta
 
 - shell:
     -
