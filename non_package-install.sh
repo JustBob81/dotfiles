@@ -9,32 +9,45 @@ else
 fi
 
 if [ -d ~/.fzf ]; then
-    echo 'fzf already downloaded.'
+    echo 'fzf - already downloaded.'
 else
     git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
 fi
 
 if command -v fzf &> /dev/null; then
-    echo 'fzf already installed.'
+    echo 'fzf - already installed.'
 else
     ~/.fzf/install
 fi
 
 if command -v calibre &> /dev/null; then
-   echo 'calibre - already installed'
+   echo 'calibre - already installed.'
 else
     wget -nv -O- https://download.calibre-ebook.com/linux-installer.sh \
         | sh /dev/stdin
 fi
 
+if command -v pipx &> /dev/null; then
+   echo 'pipx - already installed.'
+else
+    python3 -m pip install --user pipx
+    python3 -m pipx ensurepath
+fi
+
+if command -v yamllint &> /dev/null; then
+    echo 'yamllint - already installed.'
+else
+    pipx install yamllint
+fi
+
 if [ -d ~/.antigen ]; then
-    echo 'antigen - already installed'
+    echo 'antigen - already installed.'
 else
     curl -L git.io/antigen.zsh
 fi
 
 if [ -d ~/.renv ]; then
-    echo 'renv-installer - already installed'
+    echo 'renv-installer - already installed.'
 else
     git clone https://github.com/jcrodriguez1989/renv-installer.git ~/.renv
 fi
