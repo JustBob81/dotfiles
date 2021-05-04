@@ -29,7 +29,7 @@
           command: apt install -y libreadline-dev xzdec libyaml-dev zlib1g-dev libpng-dev libz-dev libbz2-dev libncurses5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev libgsl-dev libcap-dev libacl1-dev libselinux1-dev libdrm-dev
           description: install supporting libraries
         -
-          command: apt install -y curl wget zsh libssl-dev dirmngr gnupg apt-transport-https ca-certificates software-properties-common direnv pandoc silversearcher-ag ack caffeine git-core imagemagick snapd ripgrep simple-scan shellcheck google-cloud-sdk kubectl
+          command: apt install -y curl wget zsh libssl-dev dirmngr gnupg apt-transport-https ca-certificates software-properties-common direnv pandoc silversearcher-ag ack caffeine git-core imagemagick snapd ripgrep simple-scan shellcheck google-cloud-sdk kubectl xclip
           description: install system tools
         -
           command: apt install -y libgdbm-dev libsqlite3-dev sqlite3 postgresql postgresql-contrib
