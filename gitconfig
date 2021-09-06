@@ -2,5 +2,9 @@
 	name = Robert Kulzick
 	email = rjkulzick@gmail.com
 	signingkey = C139069E66B8E5C6
+
+[core]
+        excludesfile = ~/.gitignore_global
+
 [github]
 	user = JustBob81

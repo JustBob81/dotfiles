@@ -17,6 +17,7 @@
     ~/.ssh/config:
       path: ssh/config
       create: true
+    ~/.gitignore_global: gitignore_global
 
 - sudo:
     - shell:

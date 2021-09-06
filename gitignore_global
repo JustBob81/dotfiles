@@ -1,0 +1,38 @@
+# Dotfiles
+.extra
+
+# Environment files
+.env
+.envrc
+
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
+
+# Folder view configuration files
+.DS_Store
+Desktop.ini
+
+# Git residue
+*.orig
+
+# IDEs
+*.iml
+.idea/
+.vscode/
+
+# Node
+npm-error.log
+yarn-error.log
+node_modules/
+
+# Python
+.python-version
+*.pyc
+
+# Thumbnail cache files
+._*
+Thumbs.db
+
+# WebAssembly
+.emsdk
