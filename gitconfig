@@ -8,3 +8,6 @@
 
 [github]
 	user = JustBob81
+
+[commit]
+        gpgsign = true
