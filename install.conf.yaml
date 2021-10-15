@@ -52,7 +52,9 @@
             postgresql-contrib
           description: install database libraries
         -
-          command: apt install -y haskell-platform python3-venv python3-pip
+          command: >-
+            apt install -y haskell-platform python3-venv python3-pip global
+            clang
           description: install programing languages
         -
           command: >-
