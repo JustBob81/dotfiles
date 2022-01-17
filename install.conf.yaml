@@ -18,6 +18,9 @@
       path: ssh/config
       create: true
     ~/.gitignore_global: gitignore_global
+    ~/.config/direnv/direnvrc:
+      path: config/direnv/direnvrc
+      create: true
 
 - sudo:
     - shell:
