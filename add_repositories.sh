@@ -29,6 +29,9 @@ readonly YARN_KEY_URL='https://dl.yarnpkg.com/debian/pubkey.gpg'
 readonly YARN_URL='https://dl.yarnpkg.com/debian/ stable main'
 readonly YARN_DEST='/etc/apt/sources.list.d/yarn.list'
 
+readonly GITHUB_CLI_KEY_URL='https://cli.github.com/packages/githubcli-archive-keyring.gpg'
+readonly GITHUB_CLI_URL='https://cli.github.com/packages stable main'
+
 readonly RVM_NAME='RVM'
 readonly RVM_KEY_1='409B6B1796C275462A1703113804BB82D39DC0E3'
 readonly RVM_KEY_2='7D2BAF1CF37B13E2069D6956105BD0E739499BDB'
@@ -122,6 +125,7 @@ function add_repository() {
 #    repository_name
 #    repository_url
 #    repository_key_url
+#    keyserver_fingerprint
 #    is_arch_specific
 ######################################################################
 function idempotent_add_repository(){
@@ -139,6 +143,7 @@ idempotent_add_repository 'r-4' "${R_URL}" "${R_KEYSERVER}" "${R_KEY}"
 idempotent_add_repository 'yarn' "${YARN_URL}" "${YARN_KEY_URL}"
 idempotent_add_repository 'rvm' "${RVM_URL}" "${RVM_KEYSERVER}" "${RVM_KEY}"
 idempotent_add_repository 'google-cloud-sdk' "${GOOGLE_CLOUD_SDK_URL}" "${GOOGLE_CLOUD_SDK_KEY_URL}"
+idempotent_add_repository 'github-cli' "${GITHUB_CLI_URL}" "${GITHUB_CLI_KEY_URL}" '' 'true'
 
 # if [[ -f "${BRAVE_DEST}" ]]; then
 #     echo "${BRAVE_NAME} repository already added."

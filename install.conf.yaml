@@ -21,6 +21,9 @@
     ~/.config/direnv/direnvrc:
       path: config/direnv/direnvrc
       create: true
+    ~/.config/gh/config.yml:
+      path: config/gh/config.yml
+      create: true
 
 - sudo:
     - shell:
@@ -48,6 +51,7 @@
             apt-transport-https ca-certificates software-properties-common
             direnv pandoc silversearcher-ag ack caffeine git-core imagemagick
             snapd ripgrep simple-scan shellcheck google-cloud-sdk kubectl xclip
+            gh
           description: install system tools
         -
           command: >-
