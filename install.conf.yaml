@@ -104,6 +104,9 @@
         -
           command: snap install fasd --beta
           description: install fasd
+        -
+          command: snap install postman
+          description: install postman
 
 - shell:
     -
