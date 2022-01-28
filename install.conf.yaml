@@ -51,7 +51,7 @@
             apt-transport-https ca-certificates software-properties-common
             direnv pandoc silversearcher-ag ack caffeine git-core imagemagick
             snapd ripgrep simple-scan shellcheck google-cloud-sdk kubectl xclip
-            gh
+            gh wmctrl
           description: install system tools
         -
           command: >-
