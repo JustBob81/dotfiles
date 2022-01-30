@@ -2,45 +2,30 @@
 #
 # idempotent installation of additional repositories
 
-readonly BRAVE_NAME='Brave Browser'
 readonly BRAVE_KEY_URL='https://brave-browser-apt-release.s3.brave.com/brave-core.asc'
-readonly BRAVE_KEY_DEST='/etc/apt/trusted.gpg.d/brave-browser-release.gpg'
 readonly BRAVE_URL='https://brave-browser-apt-release.s3.brave.com/ stable main'
-readonly BRAVE_DEST='/etc/apt/sources.list.d/brave-browser-release.list'
 
-readonly ALBERT_NAME='Albert'
-readonly ALBERT_KEY_URL_OLD='https://build.opensuse.org/projects/home:manuelschneid3r/public_key'
-readonly ALBERT_URL_OLD='http://download.opensuse.org/repositories/home:/manuelschneid3r/xUbuntu'
-readonly ALBERT_KEY_DEST='/etc/apt/trusted.gpg.d/home_manuelschneid3r.gpg'
 readonly ALBERT_STUB='http://download.opensuse.org/repositories/home:/manuelschneid3r/xUbuntu'
 readonly ALBERT_URL="${ALBERT_STUB}_$(lsb_release -rs)/ /"
 readonly ALBERT_KEY_URL="${ALBERT_STUB}_$(lsb_release -rs)/Release.key"
-readonly ALBERT_DEST='/etc/apt/sources.list.d/home:manuelschneid3r.list'
 
-readonly R_NAME='R 4.0'
 readonly R_KEY='E298A3A825C0D65DFD57CBB651716619E084DAB9'
 readonly R_KEYSERVER='keyserver.ubuntu.com'
-readonly R_URL_OLD='https://cloud.r-project.org/bin/linux/ubuntu'
 readonly R_STUB='https://cloud.r-project.org/bin/linux/ubuntu'
 readonly R_URL="${R_STUB} $(lsb_release -cs)-cran40/"
 
-readonly YARN_NAME='Yarn'
 readonly YARN_KEY_URL='https://dl.yarnpkg.com/debian/pubkey.gpg'
 readonly YARN_URL='https://dl.yarnpkg.com/debian/ stable main'
-readonly YARN_DEST='/etc/apt/sources.list.d/yarn.list'
 
 readonly GITHUB_CLI_KEY_URL='https://cli.github.com/packages/githubcli-archive-keyring.gpg'
 readonly GITHUB_CLI_URL='https://cli.github.com/packages stable main'
 
-readonly RVM_NAME='RVM'
-readonly RVM_KEY_1='409B6B1796C275462A1703113804BB82D39DC0E3'
-readonly RVM_KEY_2='7D2BAF1CF37B13E2069D6956105BD0E739499BDB'
+readonly MONGODB_KEY_URL='https://www.mongodb.org/static/pgp/server-5.0.asc'
+readonly MONGODB_URL="https://repo.mongodb.org/apt/$(lsb_release -si |sed 's/.*/\L&/') $(lsb_release -sc)/mongodb-org/5.0 multiverse"
+
 readonly RVM_KEY='7BE3E5681146FD4F1A40EDA28094BB14F4E3FBBE'
 readonly RVM_KEYSERVER='hkp://pool.sks-keyservers.net'
-readonly RVM_URL='http://ppa.launchpad.net/rael-gc/rvm/ubuntu bionic main'
-# readonly RVM_URL='ppa:rael-gc/rvm'
-# http://ppa.launchpad.net/rael-gc/rvm/ubuntu bionic main
-readonly RVM_DEST='/etc/apt/sources.list.d/rael-gc-ubuntu-rvm-'
+readonly RVM_URL="http://ppa.launchpad.net/rael-gc/rvm/$(lsb_release -si |sed 's/.*/\L&/') $(lsb_release -sc) main"
 
 readonly GOOGLE_CLOUD_SDK_KEY_URL='https://packages.cloud.google.com/apt/doc/apt-key.gpg'
 readonly GOOGLE_CLOUD_SDK_URL='https://packages.cloud.google.com/apt cloud-sdk main'
@@ -68,11 +53,11 @@ fi
 # Add repository signed with stored pgp key
 # Globals:
 # Arguments:
-#    repository_name
-#    repository_url
-#    repository_key_url
-#    keyserver_fingerprint
-#    is_arch_specific
+#    repository_name - name used for key and source file
+#    repository_url - url where repository is located
+#    repository_key_url - url where key is located
+#    keyserver_fingerprint - optional key for key server
+#    is_arch_specific - optional flag for specifying architecture spec
 ######################################################################
 function add_repository() {
     key_dest="${KEYRING_DIRECTORY}/$1-archive-keyring.gpg"
@@ -122,11 +107,11 @@ function add_repository() {
 # Add repository signed with stored pgp key if not already added.
 # Globals:
 # Arguments:
-#    repository_name
-#    repository_url
-#    repository_key_url
-#    keyserver_fingerprint
-#    is_arch_specific
+#    repository_name - name used for key and source file
+#    repository_url - url where repository is located
+#    repository_key_url - url where key is located
+#    keyserver_fingerprint - optional key for key server
+#    is_arch_specific - optional flag for specifying architecture spec
 ######################################################################
 function idempotent_add_repository(){
     if [[ -f "${SOURCES_DIRECTORY}/$1.list" ]]; then
@@ -144,52 +129,4 @@ idempotent_add_repository 'yarn' "${YARN_URL}" "${YARN_KEY_URL}"
 idempotent_add_repository 'rvm' "${RVM_URL}" "${RVM_KEYSERVER}" "${RVM_KEY}"
 idempotent_add_repository 'google-cloud-sdk' "${GOOGLE_CLOUD_SDK_URL}" "${GOOGLE_CLOUD_SDK_KEY_URL}"
 idempotent_add_repository 'github-cli' "${GITHUB_CLI_URL}" "${GITHUB_CLI_KEY_URL}" '' 'true'
-
-# if [[ -f "${BRAVE_DEST}" ]]; then
-#     echo "${BRAVE_NAME} repository already added."
-# else
-#     curl -s "${BRAVE_KEY_URL}" \
-#         | sudo apt-key --keyring "${BRAVE_KEY_DEST}" add - \
-#         & echo "deb [arch=$(dpkg-architecture -q DEB_BUILD_ARCH)] ${BRAVE_URL}" \
-#             | sudo tee "${BRAVE_DEST}"
-# fi
-
-# install albert repository
-#TODO use different install commands for different versions of ubuntu
-# if [[ -f "${ALBERT_DEST}" ]]; then
-#     echo "${ALBERT_NAME} repository already added."
-# else
-#     curl "${ALBERT_KEY_URL}" \
-#         | sudo apt-key add - \
-#         & echo "deb ${ALBERT_URL}_$(lsb_release -rs)/ /" \
-#             | sudo tee "${ALBERT_DEST}" \
-#             & curl -fsSL "${ALBERT_URL}_$(lsb_release -rs)/Release.key" \
-#                    | gpg --dearmor \
-#                    | sudo tee "${ALBERT_KEY_DEST}" > /dev/null
-# fi
-
-# # install R 4.0 repository
-# if grep -Fxq "deb ${R_URL} $(lsb_release -cs)-cran40/" '/etc/apt/sources.list'; then
-#     echo "${R_NAME} repository already added."
-# else
-#     apt-key adv --keyserver "${R_KEYSERVER}" --recv-keys "${R_KEY}" \
-#         & add-apt-repository "deb ${R_URL} $(lsb_release -cs)-cran40/"
-# fi
-
-# # install yarn repository
-# if [[ -f "${YARN_DEST}" ]]; then
-#     echo "${YARN_NAME} repository already added."
-# else
-#     curl -sS "${YARN_KEY_URL}" \
-#         | apt-key add - \
-#         & echo "deb ${YARN_URL}" \
-#             | sudo tee "${YARN_DEST}"
-# fi
-
-# # install rvm repository
-# if [[ -f "${RVM_DEST}$(lsb_release -cs).list" ]]; then
-#     echo "${RVM_NAME} repository already added."
-# else
-#     gpg --keyserver "${RVM_KEYSERVER}" --recv-keys "${RVM_KEY_1}" "${RVM_KEY_2}" \
-#         & sudo apt-add-repository -y "${RVM_URL}"
-# fi
+idempotent_add_repository 'mongodb' "${MONGODB_URL}" "${MONGODB_KEY_URL}" '' 'true'

@@ -56,7 +56,7 @@
         -
           command: >-
             apt install -y libgdbm-dev libsqlite3-dev sqlite3 postgresql
-            postgresql-contrib
+            postgresql-contrib mongodb-org
           description: install database libraries
         -
           command: >-
