@@ -7,7 +7,9 @@ readonly BRAVE_URL='https://brave-browser-apt-release.s3.brave.com/ stable main'
 
 readonly ALBERT_STUB='http://download.opensuse.org/repositories/home:/manuelschneid3r/xUbuntu'
 readonly ALBERT_URL="${ALBERT_STUB}_$(lsb_release -rs)/ /"
-readonly ALBERT_KEY_URL="${ALBERT_STUB}_$(lsb_release -rs)/Release.key"
+# readonly ALBERT_KEY_URL="${ALBERT_STUB}_$(lsb_release -rs)/Release.key"
+# replaced release key with public key because release key is expired
+readonly ALBERT_KEY_URL='https://build.opensuse.org/projects/home:manuelschneid3r/public_key'
 
 readonly R_KEY='E298A3A825C0D65DFD57CBB651716619E084DAB9'
 readonly R_KEYSERVER='keyserver.ubuntu.com'

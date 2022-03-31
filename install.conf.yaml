@@ -75,9 +75,6 @@
           command: apt install -y r-base-dev r-doc-info r-mathlib elpa-ess
           description: install r
         -
-          command: apt install -y --no-install-recommends yarn
-          description: install yarn
-        -
           command: apt install -y rvm
           description: install rvm
         -
