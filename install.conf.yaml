@@ -13,6 +13,9 @@
     ~/.gitconfig: gitconfig
     ~/.zshrc: zshrc
     ~/.zshenv: zshenv
+    ~/.zprofile: zprofile
+    ~/.zlogin: zlogin
+    ~/.zlogout: zlogout
     ~/.antigenrc: antigenrc
     ~/.ssh/config:
       path: ssh/config
@@ -37,6 +40,7 @@
           command: >-
             apt install -y autoconf automake g++ gcc make pkg-config
             build-essential bison libc6-dev libffi-dev libtool libgmp-dev llvm
+            libcurl4-openssl-dev
           description: install build tools
         -
           command: >-
