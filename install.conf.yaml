@@ -108,6 +108,9 @@
         -
           command: snap install postman
           description: install postman
+        -
+          command: snap install spotify
+          description: install spotify
 
 - shell:
     -
