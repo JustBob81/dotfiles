@@ -40,6 +40,24 @@ else
     pipx install yamllint
 fi
 
+if command -v pylsp &> /dev/null; then
+    echo 'python-lsp-server - already installed.'
+else
+    pipx install python-lsp-server
+fi
+
+if command -v pipenv &> /dev/null; then
+    echo 'pipenv - already installed.'
+else
+    pipx install pipenv
+fi
+
+if command -v pip-compile &> /dev/null; then
+    echo 'pip-tools - already installed.'
+else
+    pipx install pip-tools
+fi
+
 if [ -d ~/.antigen ]; then
     echo 'antigen - already installed.'
 else

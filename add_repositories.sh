@@ -25,6 +25,9 @@ readonly GITHUB_CLI_URL='https://cli.github.com/packages stable main'
 readonly MONGODB_KEY_URL='https://www.mongodb.org/static/pgp/server-5.0.asc'
 readonly MONGODB_URL="https://repo.mongodb.org/apt/$(lsb_release -si |sed 's/.*/\L&/') $(lsb_release -sc)/mongodb-org/5.0 multiverse"
 
+readonly LLVM_KEY_URL='https://apt.llvm.org/llvm-snapshot.gpg.key'
+readonly LLVM_URL="http://apt.llvm.org/$(lsb_release -sc)/ llvm-toolchain-$(lsb_release -sc) main"
+
 readonly RVM_KEY='7BE3E5681146FD4F1A40EDA28094BB14F4E3FBBE'
 readonly RVM_KEYSERVER='hkp://pool.sks-keyservers.net'
 readonly RVM_URL="http://ppa.launchpad.net/rael-gc/rvm/$(lsb_release -si |sed 's/.*/\L&/') $(lsb_release -sc) main"
@@ -123,12 +126,16 @@ function idempotent_add_repository(){
     fi
 }
 
-# install brave repository
+# add repository for advanced toolchain packages
+sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+# install non-ubuntu repositories
 idempotent_add_repository 'brave-browser' "${BRAVE_URL}" "${BRAVE_KEY_URL}" '' 'true'
 idempotent_add_repository 'albert' "${ALBERT_URL}" "${ALBERT_KEY_URL}"
 idempotent_add_repository 'r-4' "${R_URL}" "${R_KEYSERVER}" "${R_KEY}"
 idempotent_add_repository 'yarn' "${YARN_URL}" "${YARN_KEY_URL}"
 idempotent_add_repository 'rvm' "${RVM_URL}" "${RVM_KEYSERVER}" "${RVM_KEY}"
 idempotent_add_repository 'google-cloud-sdk' "${GOOGLE_CLOUD_SDK_URL}" "${GOOGLE_CLOUD_SDK_KEY_URL}"
-idempotent_add_repository 'github-cli' "${GITHUB_CLI_URL}" "${GITHUB_CLI_KEY_URL}" '' 'true'
+# removed for now as ppa signing broken https://github.com/cli/cli/issues/6175
+# idempotent_add_repository 'github-cli' "${GITHUB_CLI_URL}" "${GITHUB_CLI_KEY_URL}" '' 'true'
 idempotent_add_repository 'mongodb' "${MONGODB_URL}" "${MONGODB_KEY_URL}" '' 'true'
+idempotent_add_repository 'llvm' "${LLVM_URL}" "${LLVM_KEY_URL}"

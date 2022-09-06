@@ -27,6 +27,9 @@
     ~/.config/gh/config.yml:
       path: config/gh/config.yml
       create: true
+    ~/.nvm/default-packages:
+      path: nvm/default-packages
+      create: true
 
 - sudo:
     - shell:
@@ -40,7 +43,7 @@
           command: >-
             apt install -y autoconf automake g++ gcc make pkg-config
             build-essential bison libc6-dev libffi-dev libtool libgmp-dev llvm
-            libcurl4-openssl-dev
+            libcurl4-openssl-dev cmake ninja-build
           description: install build tools
         -
           command: >-
@@ -55,7 +58,7 @@
             apt-transport-https ca-certificates software-properties-common
             direnv pandoc silversearcher-ag ack caffeine git-core imagemagick
             snapd ripgrep simple-scan shellcheck google-cloud-sdk kubectl xclip
-            gh wmctrl
+            gh wmctrl apt-file
           description: install system tools
         -
           command: >-
@@ -65,8 +68,12 @@
         -
           command: >-
             apt install -y haskell-platform python3-venv python3-pip global
-            clang
+            clang libclang-dev
           description: install programing languages
+        -
+          command: >-
+            apt install -y clangd
+          description: install programing language support tools
         -
           command: >-
             apt install -y libpoppler-dev libpoppler-glib-dev

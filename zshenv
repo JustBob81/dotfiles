@@ -25,3 +25,4 @@ export PIPENV_VENV_IN_PROJECT=1
 export GPG_TTY=$(tty)
 export GPGKEY=C139069E66B8E5C6
 export PATH="$(yarn global bin):$PATH"
+if [ -e /home/bobo51881/.nix-profile/etc/profile.d/nix.sh ]; then . /home/bobo51881/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
