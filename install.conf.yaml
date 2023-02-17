@@ -118,6 +118,9 @@
         -
           command: snap install spotify
           description: install spotify
+        -
+          command: snap install kruler
+          description: install kruler
 
 - shell:
     -
