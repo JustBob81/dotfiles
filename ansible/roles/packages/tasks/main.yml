@@ -1,0 +1,32 @@
+---
+- name: Validate selected package groups
+  ansible.builtin.assert:
+    that:
+      - laptop_enabled_package_groups | difference(laptop_package_groups.keys() | list) | length == 0
+    fail_msg: A selected package group has no definition.
+
+- name: Assemble the selected package baseline
+  ansible.builtin.set_fact:
+    laptop_selected_packages: >-
+      {{ laptop_enabled_package_groups | map('extract', laptop_package_groups) |
+         flatten | unique | sort }}
+
+- name: Read installed package information
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Report missing baseline packages
+  ansible.builtin.debug:
+    msg:
+      missing_packages: "{{ laptop_selected_packages | difference(ansible_facts.packages.keys() | list) }}"
+      installation_enabled: "{{ laptop_manage_packages | bool }}"
+
+- name: Ensure selected baseline packages are present when explicitly requested
+  ansible.builtin.apt:
+    name: "{{ laptop_selected_packages }}"
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when: laptop_manage_packages | bool

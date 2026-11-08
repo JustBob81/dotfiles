@@ -1,0 +1,14 @@
+# Isolated automation runtime, local inventory overrides, and Python artifacts.
+.hatch/
+.direnv/
+# Retain the old environment until Hatch validation completes.
+.venv-ansible/
+ansible/local-vars.yml
+**/__pycache__/
+*.retry
+
+# The reviewed project activation file contains no secrets.
+!/.envrc
+
+# Local environment pointer or legacy environment, never project source.
+/.venv

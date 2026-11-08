@@ -1,0 +1,19 @@
+# One tooling environment directly in the project root, not a package build.
+[envs.default]
+detached = true
+python = "3.12"
+path = ".hatch"
+dependencies = [
+  # Temporary bridge for Focal's managed-host Python 3.8. Revisit on OS migration.
+  # Upstream core 2.19 maintenance ends in November 2026.
+  "ansible-core>=2.19,<2.20",
+]
+
+[envs.default.scripts]
+syntax = "./ansible/run --syntax-check"
+preview = "./ansible/run --check"
+apply = "./ansible/run --apply"
+test = [
+  "python ansible/tests/test_foundation.py",
+  "python tests/test_repositories.py",
+]

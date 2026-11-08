@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Default to a preview. No packages or credentials are bootstrapped implicitly.
+set -euo pipefail
+base=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+mode=${1---check}
+shift "$(( $# > 0 ? 1 : 0 ))"
+install_packages=false
+if [[ ${1-} == --install-packages ]]; then
+    install_packages=true
+    shift
+fi
+if [[ $# != 0 ]]; then
+    printf 'Unexpected arguments. Usage: %s [--check|--apply|--syntax-check] [--install-packages]\n' "$0" >&2
+    exit 2
+fi
+playbook="$base/../.hatch/bin/ansible-playbook"
+if [[ ! -x "$playbook" ]]; then
+    printf 'Project .hatch Ansible is missing. Run ./ansible/bootstrap; see ansible/README.md.\n' >&2
+    exit 1
+fi
+cd "$base"
+export ANSIBLE_CONFIG="$base/ansible.cfg"
+case "$mode" in
+    --check) args=(--check --diff --ask-become-pass) ;;
+    --apply) args=(--ask-become-pass) ;;
+    --syntax-check) args=(--syntax-check) ;;
+    *) printf 'Unknown mode: %s\n' "$mode" >&2; exit 2 ;;
+esac
+exec "$playbook" -i "$base/inventories/local.yml" "$base/laptop.yml" \
+    "${args[@]}" --extra-vars "{\"laptop_manage_packages\":$install_packages}"
