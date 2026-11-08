@@ -91,3 +91,16 @@ application inventory remains necessary before building the Ansible configuratio
 
 Configuration in Git, encrypted data backups, and independently recoverable
 credentials are separate requirements. None substitutes for the others.
+
+
+## Ansible foundation
+
+The first Ansible profile is in [`ansible/README.md`](../ansible/README.md).
+It consumes the shared repository-state policy, enforces disabled legacy/partner
+sources, and audits reviewed base and backup prerequisite packages. Package
+installation requires a separate opt-in. Dotbot remains responsible for links.
+
+Ansible and a compatible isolated controller runtime still need installation;
+full syntax, check-mode, and convergence validation are pending. This Focal
+profile is not yet the fresh-machine recovery solution. Enabled-source/key
+provisioning and supported-LTS profiles remain subsequent milestones.

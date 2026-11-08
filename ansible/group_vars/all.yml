@@ -1,0 +1,32 @@
+---
+# The first profile describes the repaired Focal installation. A newer Ubuntu
+# release needs its own reviewed repository and application policy.
+laptop_repository_policy: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/apt-repositories.json') | from_json }}"
+laptop_expected_managed_sources:
+  - albert
+  - brave-browser
+  - google-cloud-sdk
+  - llvm
+  - mongodb
+  - r-4
+  - rvm
+  - yarn
+laptop_package_groups:
+  base:
+    - ca-certificates
+    - curl
+    - git
+    - gnupg
+    - zsh
+  backup_prerequisites:
+    - build-essential
+    - perl-doc
+    - libdbi-perl
+    - libdbd-sqlite3-perl
+    - liblinux-inotify2-perl
+laptop_enabled_package_groups:
+  - base
+  - backup_prerequisites
+# Audit by default. The wrapper's --install-packages option opts into ensuring
+# these packages are present, never a general upgrade or automatic removal.
+laptop_manage_packages: false

@@ -1,0 +1,42 @@
+---
+- name: Configure the repaired Ubuntu laptop baseline
+  hosts: laptops
+  gather_facts: true
+  become: false
+  pre_tasks:
+    - name: Require the Focal-compatible Ansible runtime
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full is version('2.19', '>=')
+          - ansible_version.full is version('2.20', '<')
+        fail_msg: Use the isolated runtime from requirements-controller.txt for this Focal profile.
+
+    - name: Require the reviewed Ubuntu release
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == 'Ubuntu'
+          - ansible_facts['distribution_release'] == laptop_repository_policy.ubuntu_codename
+        fail_msg: >-
+          This profile is for Ubuntu Focal. Review repository policy before
+          provisioning another Ubuntu release. Do not change system Python.
+
+    - name: Require a complete managed repository policy
+      ansible.builtin.assert:
+        that:
+          - laptop_repository_policy.repositories.keys() | list | sort == laptop_expected_managed_sources | sort
+          - laptop_repository_policy.external_sources['canonical-partner'].state == 'disabled'
+        fail_msg: Repository policy is incomplete or partner policy needs review.
+
+    - name: Validate each declared repository state
+      ansible.builtin.assert:
+        that:
+          - item.value.state in ['enabled', 'disabled']
+      loop: "{{ laptop_repository_policy.repositories | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+  roles:
+    - role: repositories
+      tags: [repositories]
+    - role: packages
+      tags: [packages]

@@ -1,0 +1,5 @@
+# Isolated automation runtime, local inventory overrides, and Python artifacts.
+.venv-ansible/
+ansible/local-vars.yml
+**/__pycache__/
+*.retry

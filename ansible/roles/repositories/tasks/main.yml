@@ -1,0 +1,72 @@
+---
+- name: Select repositories explicitly disabled by policy
+  ansible.builtin.set_fact:
+    laptop_disabled_sources: >-
+      {{ laptop_repository_policy.repositories | dict2items |
+         selectattr('value.state', 'equalto', 'disabled') | map(attribute='key') | list }}
+
+# Preflight every source before modifying any of them.
+- name: Inspect disabled-policy source files
+  ansible.builtin.stat:
+    path: "/etc/apt/sources.list.d/{{ item }}.list"
+    follow: false
+  loop: "{{ laptop_disabled_sources }}"
+  register: laptop_source_files
+
+- name: Inspect preserved source files
+  ansible.builtin.stat:
+    path: "/etc/apt/sources.list.d/{{ item }}.list.disabled"
+    follow: false
+  loop: "{{ laptop_disabled_sources }}"
+  register: laptop_source_backups
+
+- name: Inspect alternate deb822 definitions
+  ansible.builtin.stat:
+    path: "/etc/apt/sources.list.d/{{ item }}.sources"
+    follow: false
+  loop: "{{ laptop_disabled_sources }}"
+  register: laptop_deb822_files
+
+- name: Refuse alternate sources and existing backup collisions
+  ansible.builtin.assert:
+    that:
+      - not laptop_deb822_files.results[item].stat.exists
+      - not laptop_source_files.results[item].stat.exists or not laptop_source_backups.results[item].stat.exists
+      - not laptop_source_files.results[item].stat.exists or laptop_source_files.results[item].stat.isreg | default(false)
+    fail_msg: >-
+      Review {{ laptop_disabled_sources[item] }} manually: an alternate .sources
+      file, non-regular source file, or existing backup would make disabling ambiguous.
+  loop: "{{ range(0, laptop_disabled_sources | length) | list }}"
+  loop_control:
+    label: "{{ laptop_disabled_sources[item] }}"
+
+- name: Disable active legacy source and preserve its definition
+  ansible.builtin.command:
+    argv:
+      - /bin/mv
+      - --
+      - "/etc/apt/sources.list.d/{{ item.item }}.list"
+      - "/etc/apt/sources.list.d/{{ item.item }}.list.disabled"
+    creates: "/etc/apt/sources.list.d/{{ item.item }}.list.disabled"
+    removes: "/etc/apt/sources.list.d/{{ item.item }}.list"
+  become: true
+  when: item.stat.exists
+  changed_when: true
+  loop: "{{ laptop_source_files.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Keep Canonical partner entries disabled in the main sources file
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list
+    regexp: '^(\s*deb(?:-src)?\s+[^\n]*https?://archive\.canonical\.com/ubuntu/?\s+\S+\s+[^\n]*\bpartner\b[^\n]*)$'
+    replace: '# Disabled by laptop repository policy: \1'
+    backup: true
+  become: true
+
+- name: Explain the enabled-source scope
+  ansible.builtin.debug:
+    msg: >-
+      Enabled vendor sources and keys are preserved, not created or refreshed.
+      Ubuntu/ESM, Chrome, and the existing toolchain PPA remain outside this role.
+      No APT refresh or package upgrade has been triggered.
