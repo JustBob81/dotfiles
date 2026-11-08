@@ -5,14 +5,15 @@ base=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 mode=${1---check}
 shift "$(( $# > 0 ? 1 : 0 ))"
 install_packages=false
-if [[ ${1-} == --install-packages ]]; then
-    install_packages=true
+provision_tools=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --install-packages) install_packages=true ;;
+        --provision-tools) provision_tools=true ;;
+        *) printf 'Unexpected argument. Usage: %s [--check|--apply|--syntax-check] [--install-packages] [--provision-tools]\n' "$0" >&2; exit 2 ;;
+    esac
     shift
-fi
-if [[ $# != 0 ]]; then
-    printf 'Unexpected arguments. Usage: %s [--check|--apply|--syntax-check] [--install-packages]\n' "$0" >&2
-    exit 2
-fi
+done
 playbook="$base/../.hatch/bin/ansible-playbook"
 if [[ ! -x "$playbook" ]]; then
     printf 'Project .hatch Ansible is missing. Run ./ansible/bootstrap; see ansible/README.md.\n' >&2
@@ -27,4 +28,4 @@ case "$mode" in
     *) printf 'Unknown mode: %s\n' "$mode" >&2; exit 2 ;;
 esac
 exec "$playbook" -i "$base/inventories/local.yml" "$base/laptop.yml" \
-    "${args[@]}" --extra-vars "{\"laptop_manage_packages\":$install_packages}"
+    "${args[@]}" --extra-vars "{\"laptop_manage_packages\":$install_packages,\"laptop_manage_shared_tools\":$provision_tools}"

@@ -1,0 +1,21 @@
+{
+  "platform": "linux-x86_64",
+  "python": {
+    "version": "3.12.16",
+    "executable": "bin/python3.12",
+    "data_relative_path": "dotfiles-tools/python/cpython-3.12.16-linux-x86_64-gnu",
+    "compatibility_alias": "dotfiles-tools/python/cpython-3.12-linux-x86_64-gnu",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+    "sha256": "ce4f6d0a6cfdb3bed6e44c2f9affd85943c76a42e25ad3a259002f31d6fb8a20"
+  },
+  "pipx": {
+    "version": "1.17.6",
+    "data_relative_path": "laptop-tools/pipx-1.17.6",
+    "home_relative_path": ".local/pipx",
+    "bin_relative_path": ".local/bin"
+  },
+  "applications": {
+    "hatch": {"version": "1.18.2"}
+  },
+  "system_packages": ["direnv"]
+}

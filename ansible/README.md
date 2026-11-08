@@ -43,26 +43,17 @@ it with pipx, which owns its isolated application environment and exposes `hatch
 in `$HOME/.local/bin`. Hatch then owns each project's `.hatch` environment;
 direnv selects it on directory entry. Do not install Hatch into the project venv.
 
-Use an existing Hatch installation if available. On this laptop pipx is already
-installed. Reuse the separate Python 3.12 downloaded during the earlier bootstrap:
+Shared tool provisioning is now declared in `../config/shared-python-tools.json`.
+From a normal terminal, `./bootstrap-tools` audits it and
+`./bootstrap-tools --apply` provisions the independent Python, isolated pipx,
+and shared Hatch command before the project environment exists. No uv installation
+is required. The Ansible shared-tools role consumes this same implementation.
+See [the full bootstrap and migration guide](../docs/shared-python-tools.md).
 
-```sh
-pipx install --python \
-  "$HOME/.local/share/dotfiles-tools/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12" \
-  hatch
-```
-
-That interpreter's directory name records its original bootstrap location, not
-Hatch's scope. Keep the interpreter while pipx environments depend on it. On a
-fresh laptop use a reviewed, persistent user-level Python 3.12 installation and
-pass its executable to `pipx install --python ... hatch`. Neither the system
-interpreter nor the project environment should own global application installs.
-
-Ensure `$HOME/.local/bin` is on `PATH` (already included in these dotfiles).
-The project bootstrap only invokes Hatch; it does not install global tools.
-Hatch can reuse or fetch compatible project Python without changing system Python.
-See [Hatch installation](https://hatch.pypa.io/latest/install/) and
-[pipx application isolation](https://pipx.pypa.io/stable/).
+The historical Python location is retained as a persistent declared location;
+pipx moves off its older pyenv interpreter. Existing unrelated pipx apps are
+preserved. Directory paths, launcher backups, version pins, system prerequisites,
+and fresh-shell direnv setup are documented in that guide.
 
 From the repository root, leave the previously activated environment if needed,
 then create/synchronize the Hatch environment:
@@ -136,6 +127,10 @@ Run from the repository root:
 # Preview or apply the reviewed baseline package groups as well.
 ./ansible/run --check --install-packages
 ./ansible/run --apply --install-packages
+
+# Preview/apply shared Python, pipx, and Hatch provisioning independently.
+./ansible/run --check --provision-tools
+./ansible/run --apply --provision-tools
 ```
 
 Check mode does not change system configuration, but Ansible may create temporary
@@ -161,6 +156,7 @@ Ansible stops after a failed task; do not bypass failures with `ignore_errors`.
 - `laptop.yml`: platform and policy checks followed by the two roles.
 - `roles/repositories`: disabled-source enforcement.
 - `roles/packages`: package audit and optional installation.
+- `roles/shared_tools`: shared tool audit and opt-in provisioning using the root bootstrap.
 
 Select packages intentionally; the historical full installer is not a package
 manifest. Credentials, IDrive configuration, encryption keys, private keys, and
@@ -173,6 +169,7 @@ bash -n .envrc config/direnv/direnvrc ansible/run ansible/bootstrap
 shellcheck ansible/run ansible/bootstrap
 python ansible/tests/test_foundation.py
 python3 tests/test_repositories.py
+python tooling/test_shared_tools.py
 ```
 
 These checks cover YAML parsing, preview/apply command dispatch, package opt-in,
@@ -182,9 +179,8 @@ check mode, or real convergence testing.
 ## Next milestones
 
 1. Commit the validated Hatch/direnv migration and update the draft PR.
-2. Declare the persistent user-level Python, pipx, Hatch, and direnv bootstrap;
-   the initial manual uv/Python setup is not yet a fresh-machine specification.
-   Review all enabled sources and signing keys.
+2. Validate archive installation on a clean test system; shared-tool application
+   and convergence have passed on this laptop. Review enabled sources and keys.
 3. Move enabled-source URLs and key identities into shared policy and implement
    their fresh-machine provisioning, including duplicate-source checks.
 4. Inventory optional application groups and add user, update, service, backup,

@@ -1,0 +1,37 @@
+---
+- name: Audit shared user tooling without downloading or installing
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ playbook_dir }}/../bootstrap-tools"
+  become: false
+  check_mode: false
+  changed_when: false
+  register: laptop_shared_tools_audit
+
+- name: Report shared tooling changes and system prerequisites
+  ansible.builtin.debug:
+    var: laptop_shared_tools_audit.stdout
+
+- name: Preview explicitly requested shared tooling provisioning
+  ansible.builtin.debug:
+    msg: "{{ (laptop_shared_tools_audit.stdout | from_json).changes }}"
+  changed_when: >-
+    ((laptop_shared_tools_audit.stdout | from_json).changes | length > 0) or
+    ((laptop_shared_tools_audit.stdout | from_json).missing_system_packages | length > 0)
+  when:
+    - laptop_manage_shared_tools | bool
+    - ansible_check_mode
+
+- name: Provision shared Python pipx and Hatch when explicitly requested
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ playbook_dir }}/../bootstrap-tools"
+      - --apply
+  become: false
+  changed_when: (laptop_shared_tools_apply.stdout | from_json).changed | bool
+  register: laptop_shared_tools_apply
+  when:
+    - laptop_manage_shared_tools | bool
+    - not ansible_check_mode
