@@ -16,10 +16,12 @@ Inspect declared repositories without root or network access:
 
 This compares source definitions and checks for missing/empty key files. It does
 not establish remote availability, key freshness, or successful APT refreshes.
-Four live sources currently differ: Albert, R, RVM, LLVM (Bionic vs Focal).
+At the initial assessment, four live sources differed: Albert, R, RVM, LLVM
+(Bionic vs Focal). They are now disabled; see [the repaired APT baseline](apt-baseline.md).
 
-The explicit `sudo ./add_repositories.sh --apply` path is prepared for a later
-maintenance step, not run as part of this change. It reconciles existing managed
+Do not run `sudo ./add_repositories.sh --apply` against the repaired baseline:
+its declarations still include the four sources deliberately disabled during
+repair. Update repository policy before enabling application again. It reconciles existing managed
 source files and keys. All keys are downloaded/imported/exported into an isolated
 GPG home and validated before any live files are changed. Failed downloads or
 invalid keys stop the script. Changed files are replaced individually by rename;
@@ -41,7 +43,24 @@ shellcheck add_repositories.sh
 python3 tests/test_repositories.py
 ```
 
-## Next steps, in order
+## Verified checkpoints
+
+- IDrive account login and backup location were restored. A manual backup reported
+  431,637 files considered, 183,086 uploaded, and zero failures.
+- A downloaded copy of `docs/recovery-plan.md` had the same SHA-256 hash as the
+  original. This verifies that file, not every backed-up file or full recovery.
+- APT refresh completes without warnings after disabling the unavailable partner
+  source and four sources for the wrong Ubuntu release.
+- The Bionic Python 3.8 packages were replaced with matching Focal ESM packages.
+  System Python imports `apt` successfully.
+- Pending updates, including GDB and Samba libraries, were installed. The user
+  verified `sudo apt-get check` succeeds and `dpkg --audit` produces no output.
+
+Backup coverage, unattended backup execution, independent credential recovery,
+and a second copy of irreplaceable data still need verification. Repository and
+application inventory remains necessary before building the Ansible configuration.
+
+## Remaining work, in order
 
 1. Verify IDrive selection, recent runs, exclusions, recovery credentials, and
    restore representative recent and versioned files to a separate location.
