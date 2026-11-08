@@ -41,10 +41,26 @@ The final reported state has no pending upgrades in currently enabled sources,
 no dependency errors, and no incomplete packages. Disabled sources are excluded
 from that claim. Automatic removal has not been performed.
 
+## Declarative state policy
+
+`config/apt-repositories.json` now controls enabled/disabled state for the eight
+sources managed by `add_repositories.sh`. Unknown names, missing names, invalid
+states, and a different target release are rejected before downloads or writes.
+The disabled sources are not downloaded, refreshed, or re-enabled. If an active
+managed `.list` file exists, applying the policy renames it to `.list.disabled`;
+a pre-existing backup or alternate `.sources` definition stops application before
+publication rather than losing configuration.
+
+The `external_sources` section records policy for Ubuntu/ESM, Canonical partner,
+Chrome, and the toolchain PPA. It is documentation for the future Ansible roles;
+the helper does not enforce those entries. Source URLs and key URLs still live
+in the helper, so this is a transitional state policy rather than the final
+single-source configuration.
+
 ## Requirements for the next configuration change
 
-- Replace the legacy helper's unconditional source declarations with explicit
-  enabled/disabled repository policy before using its `--apply` mode.
+- Move source URLs, signing-key identity, and external-source handling into the
+  declarative Ansible roles, using the explicit repository states as the baseline.
 - Keep account secrets and machine-specific credentials outside Git.
 - Install reviewed application groups, not the entire historical package list.
 - Keep system configuration separate from user dotfile linking and data restores.

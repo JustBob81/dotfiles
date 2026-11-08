@@ -19,13 +19,20 @@ not establish remote availability, key freshness, or successful APT refreshes.
 At the initial assessment, four live sources differed: Albert, R, RVM, LLVM
 (Bionic vs Focal). They are now disabled; see [the repaired APT baseline](apt-baseline.md).
 
-Do not run `sudo ./add_repositories.sh --apply` against the repaired baseline:
-its declarations still include the four sources deliberately disabled during
-repair. Update repository policy before enabling application again. It reconciles existing managed
-source files and keys. All keys are downloaded/imported/exported into an isolated
-GPG home and validated before any live files are changed. Failed downloads or
-invalid keys stop the script. Changed files are replaced individually by rename;
-this is not a transaction across all files if a filesystem write fails.
+Repository states are now declared in `config/apt-repositories.json`. The helper
+keeps Albert, R, RVM, and LLVM disabled, preserving their source files as
+`.list.disabled`. Existing disabled backups are not overwritten. Enabled source
+URLs still come from the transitional helper; other entries in `external_sources`
+are documented policy only and are not changed by it.
+
+The explicit `sudo ./add_repositories.sh --apply` path is not needed on the
+repaired laptop: read-only inspection already matches its policy. Before using
+it on another installation, review enabled vendor endpoints and signing keys.
+The helper stages enabled keys and disabled-source checks before live writes;
+failed downloads or invalid keys stop the script. Changed files are replaced
+individually by rename, not as one transaction across all files. Alternate deb822
+files for disabled repositories require manual review rather than being silently
+modified.
 
 Application is limited to Focal until repository compatibility is reviewed for
 the next release. This is a transitional repair, not the final Ansible setup.
