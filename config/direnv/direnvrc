@@ -21,3 +21,24 @@ layout_poetry() {
   export POETRY_ACTIVE=1
   PATH_add "$VENV"
 }
+
+# Standard project tooling environment: .hatch is the venv itself, not a parent
+# directory containing named environments. Create/sync it explicitly with Hatch.
+layout_hatch() {
+  watch_file hatch.toml
+  watch_file pyproject.toml
+  watch_file .hatch/pyvenv.cfg
+
+  if [[ ! -x .hatch/bin/python ]]; then
+    log_error 'Missing .hatch environment. Run hatch env create, then direnv reload.'
+    return 1
+  fi
+
+  export VIRTUAL_ENV="$PWD/.hatch"
+  export HATCH_ENV=default
+  export HATCH_ENV_TYPE_VIRTUAL_PATH="$VIRTUAL_ENV"
+  export PYTHONNOUSERSITE=1
+  export PIP_REQUIRE_VIRTUALENV=true
+  unset PYTHONHOME
+  PATH_add .hatch/bin
+}

@@ -9,7 +9,7 @@
         that:
           - ansible_version.full is version('2.19', '>=')
           - ansible_version.full is version('2.20', '<')
-        fail_msg: Use the isolated runtime from requirements-controller.txt for this Focal profile.
+        fail_msg: Use the project Hatch environment from hatch.toml for this Focal profile.
 
     - name: Require the reviewed Ubuntu release
       ansible.builtin.assert:

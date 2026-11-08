@@ -1,4 +1,0 @@
-# Temporary Focal bridge: target Python 3.8 requires core <2.20.
-# Controller Python 3.11-3.13 is required. Review this pin when migrating Ubuntu;
-# upstream 2.19 maintenance ends in November 2026.
-ansible-core>=2.19,<2.20

@@ -13,8 +13,9 @@ if [[ $# != 0 ]]; then
     printf 'Unexpected arguments. Usage: %s [--check|--apply|--syntax-check] [--install-packages]\n' "$0" >&2
     exit 2
 fi
-if ! command -v ansible-playbook >/dev/null; then
-    printf 'ansible-playbook is missing. See ansible/README.md for isolated runtime setup.\n' >&2
+playbook="$base/../.hatch/bin/ansible-playbook"
+if [[ ! -x "$playbook" ]]; then
+    printf 'Project .hatch Ansible is missing. Run ./ansible/bootstrap; see ansible/README.md.\n' >&2
     exit 1
 fi
 cd "$base"
@@ -25,5 +26,5 @@ case "$mode" in
     --syntax-check) args=(--syntax-check) ;;
     *) printf 'Unknown mode: %s\n' "$mode" >&2; exit 2 ;;
 esac
-exec ansible-playbook -i "$base/inventories/local.yml" "$base/laptop.yml" \
+exec "$playbook" -i "$base/inventories/local.yml" "$base/laptop.yml" \
     "${args[@]}" --extra-vars "{\"laptop_manage_packages\":$install_packages}"

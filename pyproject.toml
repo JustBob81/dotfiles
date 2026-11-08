@@ -1,0 +1,5 @@
+# Project identity for Hatch; detached tooling does not install/build this repo.
+[project]
+name = "dotfiles-tooling"
+version = "0.0.0"
+requires-python = ">=3.12,<3.13"

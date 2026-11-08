@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import shutil
 import tempfile
 import unittest
 
@@ -15,12 +16,16 @@ ROOT = Path(__file__).resolve().parents[2]
 class FoundationTests(unittest.TestCase):
     def run_wrapper(self, *arguments):
         with tempfile.TemporaryDirectory() as directory:
-            executable = Path(directory) / 'ansible-playbook'
+            self.wrapper_root = Path(directory) / 'project'
+            (self.wrapper_root / 'ansible').mkdir(parents=True)
+            (self.wrapper_root / '.hatch/bin').mkdir(parents=True)
+            shutil.copy(ROOT / 'ansible/run', self.wrapper_root / 'ansible/run')
+            executable = self.wrapper_root / '.hatch/bin/ansible-playbook'
             executable.write_text('#!/usr/bin/python3\nimport json, os, sys\n'
                                   'print(json.dumps({"args": sys.argv[1:], '
                                   '"config": os.environ.get("ANSIBLE_CONFIG")}))\n')
             executable.chmod(0o755)
-            return subprocess.run([str(ROOT / 'ansible/run'), *arguments],
+            return subprocess.run([str(self.wrapper_root / 'ansible/run'), *arguments],
                                   env={**os.environ, 'PATH': directory + ':' + os.environ['PATH']},
                                   capture_output=True, text=True, cwd='/tmp')
 
@@ -30,7 +35,7 @@ class FoundationTests(unittest.TestCase):
         call = json.loads(result.stdout)
         self.assertIn('--check', call['args'])
         self.assertIn('--diff', call['args'])
-        self.assertEqual(call['config'], str(ROOT / 'ansible/ansible.cfg'))
+        self.assertEqual(call['config'], str(self.wrapper_root / 'ansible/ansible.cfg'))
         self.assertEqual(json.loads(call['args'][-1]), {'laptop_manage_packages': False})
 
     def test_application_requires_explicit_mode(self):
@@ -78,6 +83,68 @@ class FoundationTests(unittest.TestCase):
             'deb https://example.invalid/ubuntu focal partner',
         ]:
             self.assertEqual(re.sub(pattern, replacement, line, flags=re.MULTILINE), line)
+
+    def test_wrapper_refuses_global_ansible_when_project_environment_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / 'project'
+            (project / 'ansible').mkdir(parents=True)
+            shutil.copy(ROOT / 'ansible/run', project / 'ansible/run')
+            fake_global = Path(directory) / 'ansible-playbook'
+            fake_global.write_text('#!/bin/sh\necho WRONG_ANSIBLE\n')
+            fake_global.chmod(0o755)
+            result = subprocess.run([str(project / 'ansible/run'), '--syntax-check'],
+                                    env={**os.environ, 'PATH': directory + ':' + os.environ['PATH']},
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn('WRONG_ANSIBLE', result.stdout)
+
+    @unittest.skipUnless(shutil.which('direnv'), 'direnv is required for activation checks')
+    def test_direnv_selects_project_hatch_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / 'project'
+            project.mkdir()
+            (project / 'config/direnv').mkdir(parents=True)
+            shutil.copy(ROOT / '.envrc', project / '.envrc')
+            shutil.copy(ROOT / 'config/direnv/direnvrc', project / 'config/direnv/direnvrc')
+            shutil.copy(ROOT / 'hatch.toml', project / 'hatch.toml')
+            (project / '.hatch/bin').mkdir(parents=True)
+            (project / '.hatch/bin/python').symlink_to('/usr/bin/python3')
+            env = {**os.environ, 'DIRENV_CONFIG': str(Path(directory) / 'direnv-config'),
+                   'VIRTUAL_ENV': '/other/project/environment',
+                   'HATCH_ENV_TYPE_VIRTUAL_PATH': '/other/project/environment',
+                   'ANSIBLE_CONFIG': '/other/project/ansible.cfg'}
+            subprocess.run(['direnv', 'allow', str(project)], env=env, check=True,
+                           capture_output=True)
+            result = subprocess.run([
+                'direnv', 'exec', str(project), '/usr/bin/python3', '-c',
+                'import os,json,shutil; print(json.dumps({'
+                '"venv":os.environ["VIRTUAL_ENV"],'
+                '"hatch":os.environ["HATCH_ENV_TYPE_VIRTUAL_PATH"],'
+                '"python":shutil.which("python"),'
+                '"config":os.environ["ANSIBLE_CONFIG"]}))'
+            ], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values = json.loads(result.stdout)
+            self.assertEqual(values['venv'], str(project / '.hatch'))
+            self.assertEqual(values['hatch'], str(project / '.hatch'))
+            self.assertEqual(values['python'], str(project / '.hatch/bin/python'))
+            self.assertEqual(values['config'], str(project / 'ansible/ansible.cfg'))
+
+    @unittest.skipUnless(shutil.which('direnv'), 'direnv is required for activation checks')
+    def test_direnv_reports_missing_environment_without_bootstrapping(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / 'project'
+            (project / 'config/direnv').mkdir(parents=True)
+            shutil.copy(ROOT / '.envrc', project / '.envrc')
+            shutil.copy(ROOT / 'config/direnv/direnvrc', project / 'config/direnv/direnvrc')
+            shutil.copy(ROOT / 'hatch.toml', project / 'hatch.toml')
+            env = {**os.environ, 'DIRENV_CONFIG': str(Path(directory) / 'direnv-config')}
+            subprocess.run(['direnv', 'allow', str(project)], env=env, check=True,
+                           capture_output=True)
+            result = subprocess.run(['direnv', 'exec', str(project), '/bin/true'],
+                                    env=env, capture_output=True, text=True)
+            self.assertIn('Missing .hatch environment', result.stderr)
+            self.assertFalse((project / '.hatch').exists())
 
 
 if __name__ == '__main__':

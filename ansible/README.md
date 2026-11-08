@@ -23,30 +23,101 @@ handles the main sources file, not every possible deb822 definition.
 
 ## Runtime prerequisite
 
-The system interpreter `/usr/bin/python3` stays on Python 3.8. Ansible's controller
-runtime is separate: use Python 3.11 through 3.13 in a virtual environment and the
-Focal-compatible core 2.19 range in `requirements-controller.txt`. Core 2.20 drops
-target Python 3.8 support. Core 2.19 upstream maintenance ends in November 2026;
-this is a temporary migration bridge, not the final supported-OS runtime policy.
-Review the [Ansible support matrix](https://docs.ansible.com/projects/ansible/latest/reference_appendices/release_and_maintenance.html)
-when choosing the new Ubuntu release and controller requirements.
+Hatch owns the controller environment directly at the repository root's `.hatch`.
+It uses Python 3.12 and the dependencies/scripts declared in `../hatch.toml`.
+This is a detached tooling environment: the dotfiles repository is not installed
+as a Python package. `pyproject.toml` supplies the project identity and Python
+constraint; environment contents are excluded from Git.
 
-This laptop currently has Python 3.8 system Python and older pyenv interpreters.
-Ansible and a compatible controller interpreter have not been installed during
-this milestone. Do not change `/usr/bin/python3`, add another system Python PPA,
-or install Ansible with `sudo pip`. Prepare the isolated controller separately.
+The system interpreter `/usr/bin/python3` stays on Python 3.8 for managed-host
+modules. The temporary core 2.19 range remains necessary for that target Python;
+core 2.20 drops Python 3.8 target support. Core 2.19 maintenance ends in November
+2026, so update this runtime policy when migrating Ubuntu rather than treating
+it as the permanent version. See the
+[Ansible support matrix](https://docs.ansible.com/projects/ansible/latest/reference_appendices/release_and_maintenance.html).
 
-Once a compatible interpreter is available (example using Python 3.12), from the
-repository root:
+### Hatch and project activation
+
+Hatch is a shared user-level CLI for all Python projects on the laptop. Install
+it with pipx, which owns its isolated application environment and exposes `hatch`
+in `$HOME/.local/bin`. Hatch then owns each project's `.hatch` environment;
+direnv selects it on directory entry. Do not install Hatch into the project venv.
+
+Use an existing Hatch installation if available. On this laptop pipx is already
+installed. Reuse the separate Python 3.12 downloaded during the earlier bootstrap:
 
 ```sh
-python3.12 -m venv .venv-ansible
-.venv-ansible/bin/python -m pip install -r ansible/requirements-controller.txt
-. .venv-ansible/bin/activate
+pipx install --python \
+  "$HOME/.local/share/dotfiles-tools/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12" \
+  hatch
 ```
 
-The virtual environment is excluded from Git. It is recreated from requirements,
-not restored as application data. No external Ansible collections are required.
+That interpreter's directory name records its original bootstrap location, not
+Hatch's scope. Keep the interpreter while pipx environments depend on it. On a
+fresh laptop use a reviewed, persistent user-level Python 3.12 installation and
+pass its executable to `pipx install --python ... hatch`. Neither the system
+interpreter nor the project environment should own global application installs.
+
+Ensure `$HOME/.local/bin` is on `PATH` (already included in these dotfiles).
+The project bootstrap only invokes Hatch; it does not install global tools.
+Hatch can reuse or fetch compatible project Python without changing system Python.
+See [Hatch installation](https://hatch.pypa.io/latest/install/) and
+[pipx application isolation](https://pipx.pypa.io/stable/).
+
+From the repository root, leave the previously activated environment if needed,
+then create/synchronize the Hatch environment:
+
+```sh
+# Only if the old .venv-ansible environment is currently activated:
+deactivate
+
+./ansible/bootstrap
+# Review .envrc and config/direnv/direnvrc, then authorize the project:
+direnv allow
+```
+
+The repository's `.envrc` uses the shared `layout hatch` helper in
+`config/direnv/direnvrc`. Once allowed, direnv selects `.hatch/bin` ahead of pyenv
+shims and exports `VIRTUAL_ENV`, `HATCH_ENV`, `HATCH_ENV_TYPE_VIRTUAL_PATH`,
+`PYTHONNOUSERSITE`, `PIP_REQUIRE_VIRTUALENV`, `ANSIBLE_CONFIG`, and
+`ANSIBLE_INVENTORY`. It unsets `PYTHONHOME`. Changes are unloaded when leaving
+the project. Your Antigen configuration already includes the direnv shell hook.
+The environment path override keeps inherited Hatch settings from selecting a
+virtual environment outside this project.
+
+Activation never downloads packages on `cd`. Run `./ansible/bootstrap` again
+when dependencies change; it uses Hatch to create and synchronize the environment
+and verifies Python 3.12 and the exact `.hatch` prefix. A missing environment
+reports an activation error with instructions. Older direnv may still execute
+commands using the inherited PATH after that error, so `ansible/run` explicitly
+requires `.hatch/bin/ansible-playbook` and refuses a global fallback.
+
+Verify after direnv loads:
+
+```sh
+command -v python ansible-playbook
+python -c 'import sys; print(sys.executable); print(sys.prefix)'
+printf '%s\n' "$VIRTUAL_ENV" "$ANSIBLE_CONFIG"
+./ansible/run --syntax-check
+```
+
+Both commands should resolve inside `.hatch/bin`. No manual activation is needed.
+Hatch equivalents are `hatch run syntax`, `hatch run preview`, `hatch run apply`,
+and `hatch run test`. The wrapper remains available for explicit package opt-in.
+The previous `.venv-ansible` is left intact and ignored until migration validation
+passes. Do not delete it while it is still activated.
+
+### The same convention in other projects
+
+Use `[envs.default]` with `path = ".hatch"` in `hatch.toml` (or
+`[tool.hatch.envs.default]` in `pyproject.toml`). With these dotfiles installed,
+project `.envrc` files can use `layout hatch`. Dependencies remain project-specific.
+Hatch/direnv itself is installed outside the environments it creates.
+
+The runtime requirement lives only in `hatch.toml`; the separate requirements
+file and uv-created controller environment have been superseded. Dependencies
+are a reviewed compatibility range, not a locked release snapshot. No external
+Ansible collections are required. Secrets belong outside tracked `.envrc` files.
 
 ## Preview and application
 
@@ -75,7 +146,12 @@ reach external download services.
 
 Review output before application. On the repaired laptop, repository enforcement
 should report no changes. Run application twice to establish convergence; the
-second run should report `changed=0`. That runtime check has not been performed.
+second run should report `changed=0`. On the repaired laptop, syntax validation,
+check mode, and two consecutive application runs have now passed. Each preview
+and application recap reported `ok=16 changed=0 unreachable=0 failed=0 skipped=2`;
+no baseline packages were missing and package installation was disabled.
+These no-change runs verify the existing baseline, not provisioning from an
+unconfigured machine or the optional package-installation path.
 Ansible stops after a failed task; do not bypass failures with `ignore_errors`.
 
 ## Configuration
@@ -93,20 +169,22 @@ machine-specific secrets stay outside Git.
 ## Validation available without Ansible
 
 ```sh
-bash -n ansible/run
-shellcheck ansible/run
-/usr/bin/python3 ansible/tests/test_foundation.py
+bash -n .envrc config/direnv/direnvrc ansible/run ansible/bootstrap
+shellcheck ansible/run ansible/bootstrap
+python ansible/tests/test_foundation.py
 python3 tests/test_repositories.py
 ```
 
 These checks cover YAML parsing, preview/apply command dispatch, package opt-in,
-and partner-source matching. They do not replace Ansible syntax validation,
+partner-source matching, and real direnv activation using isolated test projects. They do not replace Ansible syntax validation,
 check mode, or real convergence testing.
 
 ## Next milestones
 
-1. Prepare the isolated controller; run syntax validation and a preview locally.
-2. Test enforcement and repeat application; review all enabled sources and keys.
+1. Commit the validated Hatch/direnv migration and update the draft PR.
+2. Declare the persistent user-level Python, pipx, Hatch, and direnv bootstrap;
+   the initial manual uv/Python setup is not yet a fresh-machine specification.
+   Review all enabled sources and signing keys.
 3. Move enabled-source URLs and key identities into shared policy and implement
    their fresh-machine provisioning, including duplicate-source checks.
 4. Inventory optional application groups and add user, update, service, backup,

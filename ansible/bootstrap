@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Hatch owns the project environment. No sudo, shell activation, or system Python changes.
+set -euo pipefail
+if [[ $# != 0 ]]; then
+    printf 'Usage: %s\n' "$0" >&2
+    exit 2
+fi
+base=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+root=$(cd "$base/.." && pwd)
+cd "$root"
+if ! command -v hatch >/dev/null; then
+    printf 'Hatch is missing from PATH. See ansible/README.md for tool installation.\n' >&2
+    exit 1
+fi
+# Override any inherited Hatch environment selection/path from another project.
+export HATCH_ENV=default
+export HATCH_ENV_TYPE_VIRTUAL_PATH="$root/.hatch"
+hatch env create default
+# Running through Hatch synchronizes dependencies even if the environment existed.
+hatch run default:python - <<'PY'
+import sys
+from pathlib import Path
+expected = Path.cwd() / '.hatch'
+if Path(sys.prefix).resolve() != expected.resolve() or sys.prefix == sys.base_prefix:
+    raise SystemExit('Expected a project-local .hatch virtual environment.')
+if sys.version_info[:2] != (3, 12):
+    raise SystemExit('The controller environment requires Python 3.12.')
+print('Project controller:', sys.executable)
+PY
+hatch run default:ansible-playbook --version
+printf '\nEnvironment ready at %s/.hatch.\nReview .envrc, then run:\n  direnv allow\n  ./ansible/run --syntax-check\n' "$root"

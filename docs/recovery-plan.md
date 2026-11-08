@@ -100,7 +100,10 @@ It consumes the shared repository-state policy, enforces disabled legacy/partner
 sources, and audits reviewed base and backup prerequisite packages. Package
 installation requires a separate opt-in. Dotbot remains responsible for links.
 
-Ansible and a compatible isolated controller runtime still need installation;
-full syntax, check-mode, and convergence validation are pending. This Focal
-profile is not yet the fresh-machine recovery solution. Enabled-source/key
+Hatch owns the project-local `.hatch` environment selected by direnv. With
+Python 3.12.16 and Ansible core 2.19.15, syntax validation, a check-mode preview,
+and two consecutive application runs passed. Each preview/application reported
+`changed=0 failed=0`, with no missing baseline packages and installation disabled.
+This verifies repeatability on the repaired laptop, not fresh provisioning.
+The Focal profile is not yet the fresh-machine recovery solution. Enabled-source/key
 provisioning and supported-LTS profiles remain subsequent milestones.
