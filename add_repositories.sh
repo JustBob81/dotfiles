@@ -58,16 +58,85 @@ repository_line() {
         "$options" "$KEYRING_DIRECTORY" "$name" "$url"
 }
 
-# Each declaration is shared by inspection and application.
+# Execution policy is separate from URL construction so disabled sources stay disabled.
+load_repository_policy() {
+    local policy_file
+    policy_file=${1:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config/apt-repositories.json"}
+    policy_rows=$(/usr/bin/python3 - "$policy_file" <<'PYTHON'
+import json
+import sys
+
+with open(sys.argv[1]) as stream:
+    policy = json.load(stream)
+expected = {"brave-browser", "albert", "r-4", "yarn", "rvm", "google-cloud-sdk", "mongodb", "llvm"}
+if policy.get("ubuntu_codename") != "focal":
+    raise SystemExit("Repository policy must explicitly target focal")
+repos = policy.get("repositories", {})
+if set(repos) != expected:
+    raise SystemExit("Repository policy must cover exactly the managed repositories")
+for name, entry in repos.items():
+    if entry.get("state") not in {"enabled", "disabled"}:
+        raise SystemExit("Invalid repository state: " + name)
+    print(name + " " + entry["state"])
+PYTHON
+    )
+}
+
 repositories() {
-    "$@" brave-browser "$BRAVE_URL" "$BRAVE_KEY_URL" '' true
-    "$@" albert "$ALBERT_URL" "$ALBERT_KEY_URL"
-    "$@" r-4 "$R_URL" "$R_KEYSERVER" "$R_KEY"
-    "$@" yarn "$YARN_URL" "$YARN_KEY_URL"
-    "$@" rvm "$RVM_URL" "$RVM_KEYSERVER" "$RVM_KEY"
-    "$@" google-cloud-sdk "$GOOGLE_CLOUD_SDK_URL" "$GOOGLE_CLOUD_SDK_KEY_URL"
-    "$@" mongodb "$MONGODB_URL" "$MONGODB_KEY_URL" '' true
-    "$@" llvm "$LLVM_URL" "$LLVM_KEY_URL"
+    local name state
+    while read -r name state; do
+        if [[ "$state" == disabled ]]; then
+            case "$1" in
+                check_repository) check_disabled_repository "$name" ;;
+                stage_repository) stage_disabled_repository "$name" ;;
+                publish_repository) publish_disabled_repository "$name" ;;
+                *) printf 'Unknown repository operation: %s\n' "$1" >&2; return 2 ;;
+            esac
+            continue
+        fi
+        case "$name" in
+            brave-browser) "$@" brave-browser "$BRAVE_URL" "$BRAVE_KEY_URL" '' true ;;
+            albert) "$@" albert "$ALBERT_URL" "$ALBERT_KEY_URL" ;;
+            r-4) "$@" r-4 "$R_URL" "$R_KEYSERVER" "$R_KEY" ;;
+            yarn) "$@" yarn "$YARN_URL" "$YARN_KEY_URL" ;;
+            rvm) "$@" rvm "$RVM_URL" "$RVM_KEYSERVER" "$RVM_KEY" ;;
+            google-cloud-sdk) "$@" google-cloud-sdk "$GOOGLE_CLOUD_SDK_URL" "$GOOGLE_CLOUD_SDK_KEY_URL" ;;
+            mongodb) "$@" mongodb "$MONGODB_URL" "$MONGODB_KEY_URL" '' true ;;
+            llvm) "$@" llvm "$LLVM_URL" "$LLVM_KEY_URL" ;;
+        esac
+    done <<< "$policy_rows"
+}
+
+check_disabled_repository() {
+    local name=$1
+    if [[ -e "$SOURCES_DIRECTORY/$name.sources" ]]; then
+        printf 'UNMANAGED DEB822 SOURCE: %s.sources (review manually)\n' "$name"
+    fi
+    if [[ -e "$SOURCES_DIRECTORY/$name.list" ]]; then
+        printf 'SHOULD BE DISABLED: %s.list\n' "$name"
+    else
+        printf 'DISABLED: %s\n' "$name"
+    fi
+}
+
+stage_disabled_repository() {
+    local source="${2:-$SOURCES_DIRECTORY}/$1.list"
+    if [[ -e "${2:-$SOURCES_DIRECTORY}/$1.sources" ]]; then
+        printf 'Refusing to disable %s: review its .sources definition manually.\n' "$1" >&2
+        return 1
+    fi
+    if [[ -e "$source" && -e "$source.disabled" ]]; then
+        printf 'Refusing to overwrite existing backup: %s.disabled\n' "$source" >&2
+        return 1
+    fi
+}
+
+publish_disabled_repository() {
+    local source="${2:-$SOURCES_DIRECTORY}/$1.list"
+    if [[ -e "$source" ]]; then
+        mv -- "$source" "$source.disabled"
+        printf 'DISABLED: %s\n' "$source"
+    fi
 }
 
 check_repository() {
@@ -120,6 +189,7 @@ main() {
     case "${1---check}" in
         --check)
             [[ $# -le 1 ]] || return 2
+            load_repository_policy ""
             repositories check_repository
             printf '\nInspection only; keys and remote repository availability were not verified.\n'
             ;;
@@ -133,13 +203,14 @@ main() {
                 printf 'Application is currently limited to Ubuntu 20.04; review repository support before migration.\n' >&2
                 return 1
             fi
+            load_repository_policy ""
             local prerequisite
             for prerequisite in curl gpg install cmp dpkg; do
                 command -v "$prerequisite" >/dev/null
             done
             staging=$(mktemp -d)
             trap 'rm -rf -- "$staging"' EXIT
-            # All downloads and key validation must succeed before any live writes.
+            # Validate enabled keys and disabled-source backup paths before live writes.
             repositories stage_repository
             install -d -m 755 "$KEYRING_DIRECTORY" "$SOURCES_DIRECTORY"
             repositories publish_repository

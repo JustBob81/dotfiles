@@ -1,0 +1,55 @@
+{
+  "ubuntu_codename": "focal",
+  "repositories": {
+    "brave-browser": {
+      "state": "enabled",
+      "reason": "Preserve the current browser source."
+    },
+    "albert": {
+      "state": "disabled",
+      "reason": "Legacy Bionic source; review supported installation before enabling."
+    },
+    "r-4": {
+      "state": "disabled",
+      "reason": "Legacy Bionic source; current CRAN support excludes Focal."
+    },
+    "yarn": {
+      "state": "enabled",
+      "reason": "Preserve existing source pending application inventory."
+    },
+    "rvm": {
+      "state": "disabled",
+      "reason": "Legacy Bionic source; review language environment requirements."
+    },
+    "google-cloud-sdk": {
+      "state": "enabled",
+      "reason": "Preserve existing CLI source pending application inventory."
+    },
+    "mongodb": {
+      "state": "enabled",
+      "reason": "Preserve existing 5.0 source; review database usage and migration separately."
+    },
+    "llvm": {
+      "state": "disabled",
+      "reason": "Legacy Bionic source; choose supported compiler tooling explicitly."
+    }
+  },
+  "external_sources": {
+    "ubuntu": {
+      "state": "preserve",
+      "reason": "Distribution and ESM sources are managed outside this transitional helper."
+    },
+    "canonical-partner": {
+      "state": "disabled",
+      "reason": "Disabled in sources.list after connection failures; do not re-enable during provisioning."
+    },
+    "google-chrome": {
+      "state": "preserve",
+      "reason": "Existing deb822 source; outside helper scope."
+    },
+    "toolchain-test-ppa": {
+      "state": "preserve",
+      "reason": "Existing Focal PPA; do not add it on fresh machines without an explicit decision."
+    }
+  }
+}
