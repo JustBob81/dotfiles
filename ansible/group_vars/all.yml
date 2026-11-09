@@ -14,6 +14,7 @@ laptop_expected_managed_sources:
 laptop_package_groups:
   base:
     - ca-certificates
+    - direnv
     - curl
     - git
     - gnupg
@@ -30,3 +31,6 @@ laptop_enabled_package_groups:
 # Audit by default. The wrapper's --install-packages option opts into ensuring
 # these packages are present, never a general upgrade or automatic removal.
 laptop_manage_packages: false
+
+# Provision shared user tools only with --provision-tools.
+laptop_manage_shared_tools: false

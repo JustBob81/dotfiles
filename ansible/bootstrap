@@ -13,6 +13,10 @@ if ! command -v hatch >/dev/null; then
     exit 1
 fi
 # Override any inherited Hatch environment selection/path from another project.
+# The declared shared interpreter is persistent and independent of this project venv.
+shared_python=$("$root/bootstrap-tools" --python-path)
+shared_python_bin=$(dirname "$shared_python")
+export PATH="$shared_python_bin:$PATH"
 export HATCH_ENV=default
 export HATCH_ENV_TYPE_VIRTUAL_PATH="$root/.hatch"
 hatch env create default

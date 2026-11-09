@@ -107,3 +107,18 @@ and two consecutive application runs passed. Each preview/application reported
 This verifies repeatability on the repaired laptop, not fresh provisioning.
 The Focal profile is not yet the fresh-machine recovery solution. Enabled-source/key
 provisioning and supported-LTS profiles remain subsequent milestones.
+
+
+## Shared tool provisioning
+
+The next branch declares persistent user-level Python, pipx, and Hatch in
+`config/shared-python-tools.json`, with a standard-library bootstrap usable before
+Ansible exists. direnv is a declared APT prerequisite. The default run only audits;
+`--provision-tools` explicitly enables user-level provisioning. The old Python
+location and pipx application home are retained to preserve dependents. No uv
+installation is needed on a fresh machine. See
+[shared Python tooling](shared-python-tools.md) for preview and validation steps.
+Live provisioning succeeded on the repaired laptop: one changed task on first
+application, then `changed=0 failed=0` on the repeat. pipx 1.17.6 and Hatch 1.18.2
+match policy, and the audit reports no drift or missing system packages.
+Fresh-machine archive installation and a complete restore still need validation.

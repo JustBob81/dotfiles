@@ -36,7 +36,7 @@ class FoundationTests(unittest.TestCase):
         self.assertIn('--check', call['args'])
         self.assertIn('--diff', call['args'])
         self.assertEqual(call['config'], str(self.wrapper_root / 'ansible/ansible.cfg'))
-        self.assertEqual(json.loads(call['args'][-1]), {'laptop_manage_packages': False})
+        self.assertEqual(json.loads(call['args'][-1]), {'laptop_manage_packages': False, 'laptop_manage_shared_tools': False})
 
     def test_application_requires_explicit_mode(self):
         result = self.run_wrapper('--apply')
@@ -44,14 +44,22 @@ class FoundationTests(unittest.TestCase):
         args = json.loads(result.stdout)['args']
         self.assertNotIn('--check', args)
         self.assertIn('--ask-become-pass', args)
-        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': False})
+        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': False, 'laptop_manage_shared_tools': False})
 
     def test_package_management_is_explicit(self):
         result = self.run_wrapper('--check', '--install-packages')
         self.assertEqual(result.returncode, 0, result.stderr)
         args = json.loads(result.stdout)['args']
         self.assertIn('--check', args)
-        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': True})
+        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': True, 'laptop_manage_shared_tools': False})
+
+    def test_shared_tool_provisioning_requires_explicit_flag(self):
+        result = self.run_wrapper('--check', '--provision-tools')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = json.loads(result.stdout)['args']
+        self.assertIn('--check', args)
+        self.assertEqual(json.loads(args[-1]),
+                         {'laptop_manage_packages': False, 'laptop_manage_shared_tools': True})
 
     def test_unknown_flags_do_not_reach_ansible(self):
         result = self.run_wrapper('--apply', '--extra-vars', 'laptop_manage_packages=true')

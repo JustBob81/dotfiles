@@ -16,4 +16,6 @@ apply = "./ansible/run --apply"
 test = [
   "python ansible/tests/test_foundation.py",
   "python tests/test_repositories.py",
+  "python tooling/test_shared_tools.py",
 ]
+tools-audit = "python bootstrap-tools"
