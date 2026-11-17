@@ -21,6 +21,35 @@ and temporary package patch remain in `~/.emacs.d`. Dotfiles only provisions the
 - The superseded emacs-local repository is historical only. It is neither read,
   cloned nor linked by this integration.
 
+### Private Git access on a fresh machine
+
+This setup is intentionally manual because an SSH key grants access to a private
+repository and registering it changes GitHub account/repository access. For a
+temporary VM, create a dedicated SSH key in the guest, display only its `.pub`
+file, and add it to the private `emacs.d` repository as a **read-only deploy key**
+(Repository Settings → Deploy keys; leave write access disabled). Do not add the
+private key, `.ssh` directory, or GitHub credentials to dotfiles or the VM seed.
+Do not overwrite an existing SSH key; if `ssh-keygen` reports that its target
+already exists, stop and choose a separate filename with a matching SSH config
+entry or use an already authorized key.
+
+```sh
+ssh-keygen -t ed25519 -C 'resolute-emacs-readonly'
+cat ~/.ssh/id_ed25519.pub
+ssh -T git@github.com
+```
+
+After GitHub confirms the deploy key has access, run `./bootstrap-emacs --apply`
+or the Ansible `--provision-emacs` path. The private key is only needed to clone
+the repository; remove the temporary deploy key from GitHub and the private key
+from the guest after cloning if no further remote access is needed. Keep the VM
+disk private while it contains the private Emacs checkout.
+
+Bootstrap should not silently create or replace an identity key, upload a key,
+or alter GitHub deploy-key settings. A useful follow-up is a read-only private-
+repository access preflight before Snap/package changes, with a clear pointer to
+these manual steps if access is missing.
+
 Conflicting destinations, broken links and different tool versions stop
 application rather than being overwritten. Matching existing native tools are
 adopted in place. The Emacs repository's `tools/install-local.py` owns links for
@@ -140,12 +169,16 @@ warning without applying the old patch; no provisioning conflicts or changes
 were proposed.
 
 This agent session cannot launch Snap Emacs (exit 46, application tracking denied),
-so current startup/shutdown and ERT success are **not verified**. The direct ACP
-probe failed during `initialize` with code 1001; authentication/session connectivity
-is likewise **not verified** here. Rerun both wrappers in a normal terminal and
-investigate any continuing failure before treating this setup as recovered. The
-November 8 successes do not establish today's results. The separate VM test provides exploratory fresh-download/application evidence
-with important qualifications; see [the VM findings](vm-test-20261116.md).
+so this agent session cannot verify the Focal host's current startup/shutdown or
+ERT. Its direct ACP probe failed during `initialize` with code 1001. Separately,
+the user's Resolute Desktop VM run passed startup/shutdown, ERT, authenticated
+ACP, and interactive Agent Shell on November 17, 2026. This confirms the fresh
+Resolute guest path, not the Focal host's authentication state. See also
+[the November 16 VM findings](vm-test-20261116.md).
+
+For LastPass, `authinfo.gpg`, GPG-key recovery, SSH identities and other machine
+secrets, see [credential recovery](credential-recovery.md). Those values and key
+files remain outside the dotfiles repository and VM seed.
 
 The reproducibility guarantee is explicit top-level selections, preserved repository
 history and repeatable provisioning on this existing installation. It is not a full
@@ -156,9 +189,10 @@ network services, private Git access, Snap, MELPA, npm and Mise downloads must s
 be available. A clean Focal VM replay subsequently passed on a new disk with the bounded Store
 retry policy: direct classic Emacs Snap installation succeeded, Ansible first
 application reported `changed=2`, the repeat reported `changed=0`, and startup/ERT
-passed. See [the VM findings](vm-test-20261116.md). Private GitHub authentication
-and authenticated ACP/interactive use remain manual; the source-only fixture did
-not test real private remote cloning. The VM found an undeclared Emacs
+passed. See [the VM findings](vm-test-20261116.md). Private GitHub access and
+Codex sign-in are manual steps; the source-only Focal fixture did not test real
+private remote cloning. The later Resolute Desktop guest did test private cloning,
+authenticated ACP, and interactive Agent Shell successfully. The VM found an undeclared Emacs
 `session` package dependency; its fix is now committed in emacs.d as
 `4d1c0d58e466ccf65786c9dbdac54bc35fe4e23f` and selected by the initial revision.
 The Emacs session reports startup/shutdown and all three ERT tests passed.

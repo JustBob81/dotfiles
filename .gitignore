@@ -12,3 +12,12 @@ ansible/local-vars.yml
 
 # Local environment pointer or legacy environment, never project source.
 /.venv
+
+# Personal credentials and key stores must never be committed from $HOME.
+**/.authinfo
+**/.authinfo.gpg
+**/.netrc
+**/.ssh/
+**/.gnupg/
+**/secrets/
+**/credentials/

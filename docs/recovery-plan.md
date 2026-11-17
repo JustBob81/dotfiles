@@ -135,6 +135,8 @@ The historical emacs-local repository is superseded. See
 validation blockers, and the limits of version pinning. Current Snap execution
 and authenticated ACP validation must be repeated in a normal local terminal
 before this recovery checkpoint can be considered complete.
+See [credential and secret recovery](credential-recovery.md) for LastPass,
+`authinfo.gpg`, SSH/GPG key migration, and IDrive recovery boundaries.
 
 Fresh-VM testing found gaps hidden by the repaired laptop. Dotfiles now handles
 internal Python archive aliases, a longer bounded cold package bootstrap, and
@@ -143,3 +145,19 @@ as `4d1c0d58e466ccf65786c9dbdac54bc35fe4e23f`, now selected by the initial-revis
 pin. The Emacs session reports startup/shutdown and all three ERT tests passed. The VM's successful
 continuation required retries and a signed Snap workaround; it is not clean replay
 evidence. See [the November 16 VM findings](vm-test-20261116.md).
+
+
+## Supported Ubuntu profile milestone
+
+The clean Focal recovery replay passed. The next profile is Ubuntu 26.04.1 LTS on
+`feature/ubuntu-26-04-profile`, selected for its longer standard-support runway.
+The separate Resolute profile passed both a clean Ubuntu 26.04.1 Server cloud-image
+replay and the interactive Desktop install/profile setup. The Desktop guest emitted
+`RESOLUTE_DESKTOP_PROFILE_SETUP_COMPLETE` after its repeat package run passed
+`changed=0`. The guest then passed restart/login/shutdown and Emacs/Codex
+provisioning, startup/shutdown, ERT, authenticated ACP, and interactive Agent
+Shell checks. Next live-boot the XPS 13 9380 and check its hardware. Keep the
+validated Focal profile as-is.
+Vendor repositories and packages need fresh compatibility review; do not carry
+Bionic/Focal endpoints forward by string substitution. See
+[the 26.04 profile milestone](ubuntu-26.04-profile.md).

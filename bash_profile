@@ -7,7 +7,7 @@ export PATH="$RENV_ROOT/bin:$PATH"
 if command -v renv 1>/dev/null 2>&1; then
   eval "$(renv init -)"
 fi
-if [ -e /home/bobo51881/.nix-profile/etc/profile.d/nix.sh ]; then . /home/bobo51881/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+if [ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then . "$HOME/.nix-profile/etc/profile.d/nix.sh"; fi # added by Nix installer
 
 # adds gpg key to bash profile
 export GPG_TTY=$(tty)
