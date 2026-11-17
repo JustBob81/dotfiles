@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Explicit entrypoint for the separate Ubuntu 26.04 profile.
+set -euo pipefail
+base=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+mode=${1---check}
+shift "$(( $# > 0 ? 1 : 0 ))"
+install_packages=false
+provision_emacs=false
+provision_lastpass=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --install-packages) install_packages=true ;;
+        --provision-emacs) provision_emacs=true ;;
+        --provision-lastpass) provision_lastpass=true ;;
+        *) printf 'Unexpected argument. Usage: %s [--check|--apply|--syntax-check] [--install-packages] [--provision-emacs] [--provision-lastpass]\n' "$0" >&2; exit 2 ;;
+    esac
+    shift
+done
+playbook="$base/../.hatch-resolute/bin/ansible-playbook"
+if [[ ! -x "$playbook" ]]; then
+    printf 'Resolute .hatch-resolute Ansible is missing. Run ./ansible/bootstrap-resolute.\n' >&2
+    exit 1
+fi
+cd "$base"
+export ANSIBLE_CONFIG="$base/resolute.cfg"
+case "$mode" in
+    --check) args=(--check --diff --ask-become-pass) ;;
+    --apply) args=(--ask-become-pass) ;;
+    --syntax-check) args=(--syntax-check) ;;
+    *) printf 'Unknown mode: %s\n' "$mode" >&2; exit 2 ;;
+esac
+if /usr/bin/python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 9))'; then
+    target_python=/usr/bin/python3
+else
+    target_python=$("$base/../bootstrap-tools" --python-path) || {
+        printf 'System Python is older than 3.9 and the declared shared Python is unavailable. Run ./bootstrap-tools --apply first.\n' >&2
+        exit 1
+    }
+fi
+if [[ ! -x "$target_python" ]]; then
+    printf 'Ansible target interpreter is not executable: %s\n' "$target_python" >&2
+    exit 1
+fi
+printf 'Resolute profile target interpreter: %s\n' "$target_python" >&2
+extra_vars=$(/usr/bin/python3 -c 'import json,sys; print(json.dumps({"laptop_manage_packages": sys.argv[1] == "true", "ansible_python_interpreter": sys.argv[2], "laptop_manage_emacs": sys.argv[3] == "true", "laptop_manage_lastpass_extension": sys.argv[4] == "true"}))' "$install_packages" "$target_python" "$provision_emacs" "$provision_lastpass")
+exec "$playbook" -i "$base/inventories/local.yml" "$base/resolute.yml" \
+    "${args[@]}" --extra-vars "$extra_vars"

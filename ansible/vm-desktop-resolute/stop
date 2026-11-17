@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Request a clean ACPI shutdown of the Desktop VM using its QEMU monitor.
+set -euo pipefail
+if [[ $# != 1 ]]; then
+    printf 'Usage: %s EVIDENCE_DIRECTORY\n' "$0" >&2
+    exit 2
+fi
+base=$(cd -- "$1" && pwd)
+pidfile="$base/qemu.pid"
+monitor="$base/monitor.sock"
+[[ -f "$pidfile" && -S "$monitor" ]] || { printf 'No running VM found for %s\n' "$base" >&2; exit 1; }
+pid=$(cat "$pidfile")
+kill -0 "$pid" 2>/dev/null || { printf '%s\n' 'QEMU process is not running.' >&2; exit 1; }
+python3 - "$monitor" <<'PY'
+import socket, sys
+with socket.socket(socket.AF_UNIX) as sock:
+    sock.settimeout(5)
+    sock.connect(sys.argv[1])
+    sock.recv(4096)
+    sock.sendall(b'system_powerdown\n')
+    sock.recv(4096)
+PY
+printf 'Requested guest shutdown. QEMU PID %s; evidence: %s\n' "$pid" "$base"

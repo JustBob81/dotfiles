@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Create the isolated maintained Ansible controller for the Resolute profile.
+set -euo pipefail
+if [[ $# != 0 ]]; then
+    printf 'Usage: %s\n' "$0" >&2
+    exit 2
+fi
+base=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+root=$(cd "$base/.." && pwd)
+cd "$root"
+if ! command -v hatch >/dev/null; then
+    printf 'Hatch is missing from PATH. See ansible/README.md for tool installation.\n' >&2
+    exit 1
+fi
+shared_python=$("$root/bootstrap-tools" --python-path)
+export PATH="$(dirname "$shared_python"):$PATH"
+export HATCH_ENV=resolute
+export HATCH_ENV_TYPE_VIRTUAL_PATH="$root/.hatch-resolute"
+hatch env create resolute
+hatch run resolute:python - <<'PY'
+import sys
+from pathlib import Path
+expected = Path.cwd() / '.hatch-resolute'
+if Path(sys.prefix).resolve() != expected.resolve() or sys.prefix == sys.base_prefix:
+    raise SystemExit('Expected the project-local .hatch-resolute environment.')
+if sys.version_info[:2] != (3, 12):
+    raise SystemExit('The Resolute controller environment requires Python 3.12.')
+print('Resolute controller:', sys.executable)
+PY
+hatch run resolute:ansible-playbook --version
+printf '\nResolute controller ready at %s/.hatch-resolute.\n' "$root"

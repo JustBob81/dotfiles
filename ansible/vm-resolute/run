@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+# One-use clean Ubuntu Resolute cloud-image replay for the Resolute Ansible profile.
+set -euo pipefail
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo=$(cd "$script_dir/../.." && pwd)
+evidence_root=${DOTFILES_VM_EVIDENCE_ROOT:-"$HOME/.emacs.d/var"}
+stamp=$(date -u +%Y%m%d-%H%M%S)
+base="$evidence_root/vm-resolute-$stamp"
+image_name=ubuntu-26.04-server-cloudimg-amd64.img
+image_url=https://cloud-images.ubuntu.com/releases/resolute/release
+port=22426
+
+for program in qemu-system-x86_64 qemu-img genisoimage ssh scp ssh-keygen timeout gpgv curl; do
+    command -v "$program" >/dev/null || { printf 'Missing command: %s\n' "$program" >&2; exit 1; }
+done
+[[ -r /dev/kvm && -w /dev/kvm ]] || {
+    printf '%s\n' 'KVM is unavailable. Enable host virtualization and access to /dev/kvm before running this replay.' >&2
+    exit 1
+}
+[[ -r /usr/share/keyrings/ubuntu-cloudimage-keyring.gpg ]] || {
+    printf '%s\n' 'Missing /usr/share/keyrings/ubuntu-cloudimage-keyring.gpg; install ubuntu-cloudimage-keyring.' >&2
+    exit 1
+}
+[[ -r /usr/share/OVMF/OVMF_CODE.fd && -r /usr/share/OVMF/OVMF_VARS.fd ]] || {
+    printf '%s\n' 'Missing OVMF UEFI firmware. Install the host OVMF package.' >&2
+    exit 1
+}
+timeout 15 python3 - <<'PY'
+import socket
+for host in ['cloud-images.ubuntu.com', 'archive.ubuntu.com', 'github.com', 'pypi.org']:
+    socket.getaddrinfo(host, 443)
+with socket.socket() as sock:
+    sock.bind(('127.0.0.1', 22426))
+PY
+mkdir -p "$evidence_root"
+available_gb=$(df -BG --output=avail "$evidence_root" | tail -1 | tr -dc '0-9')
+(( available_gb >= 10 )) || { printf 'At least 10 GiB free space is required; found %s GiB.\n' "$available_gb" >&2; exit 1; }
+[[ ! -e "$base" ]] || { printf 'Evidence path already exists: %s\n' "$base" >&2; exit 1; }
+mkdir -p "$base"
+
+cd "$base"
+curl --fail --location --retry 4 --retry-connrefused --connect-timeout 20 --max-time 300 \
+    "$image_url/SHA256SUMS" -o SHA256SUMS.part
+mv SHA256SUMS.part SHA256SUMS
+curl --fail --location --retry 4 --retry-connrefused --connect-timeout 20 --max-time 300 \
+    "$image_url/SHA256SUMS.gpg" -o SHA256SUMS.gpg.part
+mv SHA256SUMS.gpg.part SHA256SUMS.gpg
+gpgv --keyring /usr/share/keyrings/ubuntu-cloudimage-keyring.gpg SHA256SUMS.gpg SHA256SUMS
+expected=$(awk -v name="$image_name" '($2 == name || $2 == "*" name) {print $1}' SHA256SUMS)
+[[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || { printf 'No signed checksum entry for %s.\n' "$image_name" >&2; exit 1; }
+curl --fail --location --retry 4 --retry-connrefused --connect-timeout 20 --max-time 900 \
+    "$image_url/$image_name" -o "$image_name.part"
+printf '%s  %s\n' "$expected" "$image_name.part" | sha256sum --check --status
+mv "$image_name.part" "$image_name"
+
+# Capture tracked plus non-ignored worktree files without copying Git metadata,
+# virtual environments, or ignored local data into the test guest.
+python3 - "$repo" "$base/dotfiles-snapshot.tar.gz" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+
+root, destination = Path(sys.argv[1]), Path(sys.argv[2])
+tracked = subprocess.check_output(['git', '-C', str(root), 'ls-files', '-z']).decode().split('\0')
+untracked = subprocess.check_output(['git', '-C', str(root), 'ls-files', '--others', '--exclude-standard', '-z']).decode().split('\0')
+allowed_untracked = {
+    'ansible/bootstrap-resolute', 'ansible/resolute.cfg', 'ansible/resolute.yml',
+    'ansible/run-resolute', 'ansible/vm-resolute/run',
+    'ansible/vm-resolute/provision-guest.sh', 'config/apt-repositories-resolute.json',
+}
+unexpected = {item for item in untracked if item and item not in allowed_untracked}
+if unexpected:
+    raise SystemExit('Refusing to copy unreviewed untracked files into the guest: ' + ', '.join(sorted(unexpected)))
+excluded = {'.git', '.hatch', '.hatch-resolute', '.direnv', '.venv-ansible'}
+paths = set()
+for item in tracked + untracked:
+    if item and not (set(Path(item).parts) & excluded):
+        paths.add(item)
+with tarfile.open(destination, 'w:gz') as archive:
+    for relative in sorted(paths):
+        source = root / relative
+        if source.exists() or source.is_symlink():
+            archive.add(source, arcname=relative, recursive=False)
+PY
+sha256sum dotfiles-snapshot.tar.gz > dotfiles-snapshot.sha256
+{
+    printf 'branch: '; git -C "$repo" branch --show-current
+    printf 'head: '; git -C "$repo" rev-parse HEAD
+    printf 'worktree status:\n'
+    git -C "$repo" status --short
+    cat dotfiles-snapshot.sha256
+} > source-state.txt
+
+ssh-keygen -q -t ed25519 -N '' -C "resolute-vm-$stamp" -f "$base/id_ed25519"
+pubkey=$(cat "$base/id_ed25519.pub")
+cat > user-data <<EOF
+#cloud-config
+hostname: dotfiles-resolute-test
+manage_etc_hosts: true
+users:
+  - name: vmtest
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+      - $pubkey
+ssh_pwauth: false
+disable_root: true
+package_update: false
+package_upgrade: false
+EOF
+cat > meta-data <<EOF
+instance-id: dotfiles-resolute-$stamp
+local-hostname: dotfiles-resolute-test
+EOF
+cp /usr/share/OVMF/OVMF_VARS.fd OVMF_VARS.fd
+qemu-img create -f qcow2 -F qcow2 -b "$base/$image_name" "$base/guest.qcow2" 20G
+genisoimage -quiet -output "$base/seed.iso" -volid cidata -joliet -rock user-data meta-data
+date -u > run-started
+
+ssh_args=(-i "$base/id_ed25519" -p "$port" -o IdentitiesOnly=yes -o ForwardAgent=no \
+    -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
+    -o "UserKnownHostsFile=$base/known_hosts")
+ssh_guest() { ssh "${ssh_args[@]}" vmtest@127.0.0.1 "$@"; }
+cleanup() {
+    rc=$?
+    trap - EXIT INT TERM
+    printf '%s\n' "$rc" > "$base/runner-exit-status"
+    if [[ -f "$base/qemu.pid" ]]; then
+        ssh_guest 'sudo poweroff' >/dev/null 2>&1 || true
+        for ((i=0; i<45; i++)); do
+            pid=$(cat "$base/qemu.pid" 2>/dev/null || true)
+            [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+        done
+        pid=$(cat "$base/qemu.pid" 2>/dev/null || true)
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            python3 - "$base/monitor.sock" <<'PY' || true
+import socket, sys
+with socket.socket(socket.AF_UNIX) as sock:
+    sock.settimeout(5)
+    sock.connect(sys.argv[1])
+    sock.recv(4096)
+    sock.sendall(b'quit\n')
+PY
+        fi
+    fi
+    printf 'Runner exit status: %s. Evidence: %s\n' "$rc" "$base"
+    exit "$rc"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+qemu-system-x86_64 -name dotfiles-resolute-clean-profile -enable-kvm -cpu host -smp 2 -m 4096 \
+    -machine q35 \
+    -drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd" \
+    -drive "if=pflash,format=raw,file=$base/OVMF_VARS.fd" \
+    -drive "file=$base/guest.qcow2,if=virtio,format=qcow2" \
+    -drive "file=$base/seed.iso,media=cdrom,readonly=on" \
+    -netdev "user,id=net0,hostfwd=tcp:127.0.0.1:$port-:22" \
+    -device virtio-net-pci,netdev=net0 -display none -serial "file:$base/console.log" \
+    -monitor "unix:$base/monitor.sock,server,nowait" -pidfile "$base/qemu.pid" -daemonize
+
+ready=false
+for ((i=0; i<150; i++)); do
+    if ssh_guest true >/dev/null 2>&1; then ready=true; break; fi
+    sleep 2
+done
+[[ "$ready" == true ]] || { printf '%s\n' 'Guest SSH did not become ready; inspect console.log.' >&2; exit 1; }
+ssh_guest 'cloud-init status --wait'
+scp -i "$base/id_ed25519" -P "$port" -o IdentitiesOnly=yes -o ForwardAgent=no \
+    -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$base/known_hosts" \
+    "$base/dotfiles-snapshot.tar.gz" "$base/dotfiles-snapshot.sha256" \
+    "$script_dir/provision-guest.sh" vmtest@127.0.0.1:/tmp/
+
+set +e
+timeout --foreground 5400 ssh "${ssh_args[@]}" vmtest@127.0.0.1 'bash /tmp/provision-guest.sh' 2>&1 | tee "$base/replay.log"
+result=${PIPESTATUS[0]}
+set -e
+if ssh "${ssh_args[@]}" vmtest@127.0.0.1 'tar -C "$HOME/vm-results" -czf - .' > guest-results.tar.gz 2> collection-error.log; then
+    mkdir -p guest-results
+    tar -xzf guest-results.tar.gz -C guest-results --no-same-owner --no-same-permissions
+else
+    printf '%s\n' 'Could not collect guest results; guest disk and replay.log are preserved.' >&2
+    [[ "$result" -ne 0 ]] || result=1
+fi
+exit "$result"

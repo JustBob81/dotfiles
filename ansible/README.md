@@ -3,6 +3,91 @@
 This is the first Ansible layer for the repaired Ubuntu 20.04 laptop. It is not
 an end-to-end fresh-machine recovery solution yet. Dotbot still manages user links.
 
+## Ubuntu 26.04 profile
+
+The separate Resolute profile is experimental and does not change the default
+Focal setup. It starts with Ubuntu-managed repositories only and a small base
+package group. No vendor repositories are configured, no partner source is
+edited, and package installation remains opt-in.
+
+Create its isolated maintained controller and explicitly run that playbook:
+
+```sh
+./ansible/bootstrap-resolute
+./ansible/run-resolute --syntax-check
+./ansible/run-resolute --check
+./ansible/run-resolute --apply --install-packages
+```
+
+Emacs/Codex provisioning is separate and opt-in. After private Git access is
+configured in the guest, use `./ansible/run-resolute --check --provision-emacs`
+then `--apply --provision-emacs` twice; the second apply should report
+`changed=0`. Codex sign-in and ACP validation are manual steps; both passed in
+the Resolute guest. See
+[`../docs/emacs-tools.md`](../docs/emacs-tools.md) for the read-only deploy-key
+setup.
+
+Firefox LastPass installation is also opt-in:
+
+```sh
+./ansible/run-resolute --check --provision-lastpass
+./ansible/run-resolute --apply --provision-lastpass
+```
+
+This merges an auto-install policy into `/etc/firefox/policies/policies.json`
+without replacing other policies. The extension remains removable. Restart
+Firefox, confirm it under `about:policies`, then sign in and complete MFA by hand.
+LastPass extension versions follow Mozilla Add-ons updates; credentials are not
+managed by Ansible. The same flag is available through the Focal `ansible/run`.
+
+The Resolute environment is `.hatch-resolute`, with Ansible Core 2.21 and
+Python 3.12 on the controller. It requires Ubuntu Resolute and a managed-host
+Python between 3.9 and 3.14. The regular `.hatch`, `ansible/run`, and Focal
+policy are unchanged. A clean Ubuntu 26.04.1 Server cloud-image replay passed on
+November 17, 2026: syntax check, check mode, first package application, and repeat
+application (`changed=0`). The interactive 26.04.1 Desktop installation and
+post-install profile setup also completed; the repeat application passed its
+`changed=0` assertion, and the VM restarted, accepted a login, and shut down.
+Emacs/Codex provisioning, startup/shutdown, ERT, authenticated ACP, and interactive
+Agent Shell also passed in the guest. The newer agent-shell package warning
+remains; its old patch was not applied. These runs do not validate XPS hardware
+or constitute OS-upgrade tests. The opt-in LastPass Firefox policy was applied;
+`about:policies` recognized its extension entry, and the user confirmed the
+enabled extension worked. See
+[`../docs/ubuntu-26.04-profile.md`](../docs/ubuntu-26.04-profile.md) for the
+acceptance gates and third-party review boundary.
+
+The one-use clean cloud-image replay is `./ansible/vm-resolute/run`. It verifies
+Canonical's signed Resolute cloud-image checksums, creates a new UEFI guest disk,
+captures the current non-ignored dotfiles worktree, bootstraps the controller,
+and checks repeat package convergence. It needs KVM access, OVMF, 10 GiB free
+space, and host/guest network access to Ubuntu archives, GitHub, and PyPI. The
+successful run's evidence is at
+`~/.emacs.d/var/vm-resolute-20261117-045406`; other runs are stored under
+`~/.emacs.d/var/vm-resolute-*` (override the parent with
+`DOTFILES_VM_EVIDENCE_ROOT`). This is a Server cloud image test; it does not
+validate the Desktop installer or laptop hardware.
+
+For the interactive Desktop installation path, run
+`./ansible/vm-desktop-resolute/run`. It verifies Canonical's signed 26.04.1 ISO,
+opens a QEMU window with a blank 40 GiB disk, and attaches the current dotfiles
+snapshot as a read-only `DOTFILES` disc. In the installer, choose the VM disk for
+installation and create a local test account. After first login, open the
+`DOTFILES` volume and run `bash ./provision-from-seed.sh` from its directory; it
+bootstraps the Resolute controller and applies the package baseline twice.
+If the installer asks to remove its medium, run
+`./ansible/vm-desktop-resolute/eject-installer EVIDENCE_DIRECTORY` from the host.
+The host-side `stop EVIDENCE_DIRECTORY` and `start-installed EVIDENCE_DIRECTORY`
+scripts request guest shutdown and restart the installed VM. The runner needs
+KVM, OVMF, a graphical session, at least 20 GiB free, and a network connection.
+It defaults to 4 GiB guest RAM; set `VM_MEMORY_MIB=6144` only if the host has
+enough memory. It does not install anything to the host disk. The completed run's
+evidence is at `~/.emacs.d/var/vm-desktop-resolute-20261117-051623`.
+To update the read-only `DOTFILES` disc on that installed VM without reinstalling
+Ubuntu, shut it down and run
+`./ansible/vm-desktop-resolute/refresh-seed EVIDENCE_DIRECTORY`; it preserves
+the original seed as `dotfiles-seed-initial.iso`.
+
 ## What this milestone manages
 
 - Reads the same `../config/apt-repositories.json` used by the repository helper.
@@ -135,6 +220,10 @@ Run from the repository root:
 # Audit is automatic; explicitly enable Emacs/Codex provisioning.
 ./ansible/run --check --provision-emacs
 ./ansible/run --apply --provision-emacs
+
+# Install the removable LastPass Firefox extension policy; sign-in is manual.
+./ansible/run --check --provision-lastpass
+./ansible/run --apply --provision-lastpass
 ```
 
 Check mode does not change system configuration, but Ansible may create temporary

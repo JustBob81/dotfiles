@@ -1,0 +1,60 @@
+---
+- name: Configure the Ubuntu Resolute baseline
+  hosts: laptops
+  gather_facts: true
+  become: false
+  vars:
+    laptop_repository_policy: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/apt-repositories-resolute.json') | from_json }}"
+    laptop_expected_managed_sources: []
+    laptop_disable_partner_source: false
+    laptop_package_groups:
+      base:
+        - ca-certificates
+        - curl
+        - direnv
+        - git
+        - gnupg
+        - zsh
+    laptop_enabled_package_groups: [base]
+    laptop_manage_packages: false
+    laptop_manage_emacs: false
+  pre_tasks:
+    - name: Require the maintained Resolute Ansible runtime
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full is version('2.21', '>=')
+          - ansible_version.full is version('2.22', '<')
+        fail_msg: Use the separate Resolute Hatch environment from hatch.toml.
+
+    - name: Require Ubuntu 26.04 Resolute
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == 'Ubuntu'
+          - ansible_facts['distribution_release'] == 'resolute'
+        fail_msg: This profile only targets Ubuntu 26.04 Resolute.
+
+    - name: Require a supported managed-host Python
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['python']['version']['major'] == 3
+          - ansible_facts['python']['version']['minor'] >= 9
+          - ansible_facts['python']['version']['minor'] <= 14
+        fail_msg: Ansible Core 2.21 supports managed-host Python 3.9 through 3.14.
+
+    - name: Require an empty third-party repository policy
+      ansible.builtin.assert:
+        that:
+          - laptop_repository_policy['ubuntu_codename'] == 'resolute'
+          - laptop_repository_policy['repositories'] | length == 0
+          - laptop_repository_policy['external_sources']['third-party']['state'] == 'not-configured'
+        fail_msg: Review the Resolute repository policy before adding vendor sources.
+
+  roles:
+    - role: repositories
+      tags: [repositories]
+    - role: packages
+      tags: [packages]
+    - role: emacs_tools
+      tags: [emacs_tools]
+    - role: firefox_extensions
+      tags: [firefox_extensions]

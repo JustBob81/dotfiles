@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Prepare and launch a clean, interactive Ubuntu 26.04.1 Desktop installer VM.
+set -euo pipefail
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo=$(cd "$script_dir/../.." && pwd)
+evidence_root=${DOTFILES_VM_EVIDENCE_ROOT:-"$HOME/.emacs.d/var"}
+stamp=$(date -u +%Y%m%d-%H%M%S)
+base="$evidence_root/vm-desktop-resolute-$stamp"
+iso_name=ubuntu-26.04.1-desktop-amd64.iso
+iso_url=https://releases.ubuntu.com/26.04.1
+ram=${VM_MEMORY_MIB:-4096}
+cpus=${VM_CPUS:-2}
+
+for program in qemu-system-x86_64 qemu-img genisoimage gpgv curl sha256sum; do
+    command -v "$program" >/dev/null || { printf 'Missing command: %s\n' "$program" >&2; exit 1; }
+done
+[[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] || {
+    printf '%s\n' 'A graphical session is required to use the interactive Desktop installer.' >&2
+    exit 1
+}
+[[ -r /dev/kvm && -w /dev/kvm ]] || {
+    printf '%s\n' 'KVM is unavailable. Enable host virtualization and access to /dev/kvm before launching the VM.' >&2
+    exit 1
+}
+[[ -r /usr/share/keyrings/ubuntu-archive-keyring.gpg ]] || {
+    printf '%s\n' 'Missing /usr/share/keyrings/ubuntu-archive-keyring.gpg.' >&2
+    exit 1
+}
+[[ -r /usr/share/OVMF/OVMF_CODE.fd && -r /usr/share/OVMF/OVMF_VARS.fd ]] || {
+    printf '%s\n' 'Missing OVMF UEFI firmware.' >&2
+    exit 1
+}
+[[ "$ram" =~ ^[0-9]+$ && "$ram" -ge 3072 && "$ram" -le 16384 ]] || {
+    printf 'VM_MEMORY_MIB must be between 3072 and 16384; got %s.\n' "$ram" >&2
+    exit 1
+}
+[[ "$cpus" =~ ^[0-9]+$ && "$cpus" -ge 2 && "$cpus" -le 16 ]] || {
+    printf 'VM_CPUS must be between 2 and 16; got %s.\n' "$cpus" >&2
+    exit 1
+}
+mkdir -p "$evidence_root"
+available_gb=$(df -BG --output=avail "$evidence_root" | tail -1 | tr -dc '0-9')
+(( available_gb >= 20 )) || { printf 'At least 20 GiB free space is required; found %s GiB.\n' "$available_gb" >&2; exit 1; }
+[[ ! -e "$base" ]] || { printf 'Evidence path already exists: %s\n' "$base" >&2; exit 1; }
+mkdir -p "$base"
+cd "$base"
+
+curl --fail --location --retry 4 --retry-connrefused --connect-timeout 20 --max-time 300 \
+    "$iso_url/SHA256SUMS" -o SHA256SUMS.part
+mv SHA256SUMS.part SHA256SUMS
+curl --fail --location --retry 4 --retry-connrefused --connect-timeout 20 --max-time 300 \
+    "$iso_url/SHA256SUMS.gpg" -o SHA256SUMS.gpg.part
+mv SHA256SUMS.gpg.part SHA256SUMS.gpg
+gpgv --keyring /usr/share/keyrings/ubuntu-archive-keyring.gpg SHA256SUMS.gpg SHA256SUMS
+expected=$(awk -v name="$iso_name" '($2 == name || $2 == "*" name) {print $1}' SHA256SUMS)
+[[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || { printf 'No signed checksum entry for %s.\n' "$iso_name" >&2; exit 1; }
+curl --fail --location --retry 4 --retry-connrefused --connect-timeout 20 --max-time 1800 \
+    "$iso_url/$iso_name" -o "$iso_name.part"
+printf '%s  %s\n' "$expected" "$iso_name.part" | sha256sum --check --status
+mv "$iso_name.part" "$iso_name"
+
+# Snapshot only git-known files plus the current profile's expected new files.
+python3 - "$repo" "$base/dotfiles-snapshot.tar.gz" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+
+root, destination = Path(sys.argv[1]), Path(sys.argv[2])
+tracked = subprocess.check_output(['git', '-C', str(root), 'ls-files', '-z']).decode().split('\0')
+untracked = subprocess.check_output(['git', '-C', str(root), 'ls-files', '--others', '--exclude-standard', '-z']).decode().split('\0')
+allowed_untracked = {
+    'ansible/bootstrap-resolute', 'ansible/resolute.cfg', 'ansible/resolute.yml',
+    'ansible/run-resolute', 'ansible/vm-resolute/run',
+    'ansible/vm-resolute/provision-guest.sh', 'config/apt-repositories-resolute.json',
+    'ansible/vm-desktop-resolute/run', 'ansible/vm-desktop-resolute/start-installed',
+    'ansible/vm-desktop-resolute/stop', 'ansible/vm-desktop-resolute/eject-installer',
+    'ansible/vm-desktop-resolute/provision-from-seed.sh',
+    'ansible/vm-desktop-resolute/refresh-seed',
+    'ansible/roles/firefox_extensions/tasks/main.yml',
+    'config/firefox-extensions.json',
+}
+unexpected = {item for item in untracked if item and item not in allowed_untracked}
+if unexpected:
+    raise SystemExit('Refusing to copy unreviewed untracked files into the VM: ' + ', '.join(sorted(unexpected)))
+excluded = {'.git', '.hatch', '.hatch-resolute', '.direnv', '.venv-ansible'}
+paths = {item for item in tracked + untracked if item and not (set(Path(item).parts) & excluded)}
+with tarfile.open(destination, 'w:gz') as archive:
+    for relative in sorted(paths):
+        source = root / relative
+        if source.exists() or source.is_symlink():
+            archive.add(source, arcname=relative, recursive=False)
+PY
+sha256sum dotfiles-snapshot.tar.gz > dotfiles-snapshot.sha256
+{
+    printf 'branch: '; git -C "$repo" branch --show-current
+    printf 'head: '; git -C "$repo" rev-parse HEAD
+    printf 'worktree status:\n'
+    git -C "$repo" status --short
+    cat dotfiles-snapshot.sha256
+} > source-state.txt
+mkdir -p dotfiles-seed
+cp dotfiles-snapshot.tar.gz dotfiles-snapshot.sha256 dotfiles-seed/
+cp "$script_dir/provision-from-seed.sh" dotfiles-seed/
+genisoimage -quiet -output dotfiles-seed.iso -volid DOTFILES -joliet -rock dotfiles-seed
+cp /usr/share/OVMF/OVMF_VARS.fd OVMF_VARS.fd
+qemu-img create -f qcow2 guest.qcow2 40G
+date -u > run-started
+
+qemu-system-x86_64 -name dotfiles-resolute-desktop-install -enable-kvm -cpu host -smp "$cpus" -m "$ram" \
+    -machine q35 \
+    -drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd" \
+    -drive "if=pflash,format=raw,file=$base/OVMF_VARS.fd" \
+    -drive "file=$base/guest.qcow2,if=virtio,format=qcow2" \
+    -drive "file=$base/$iso_name,media=cdrom,readonly=on,id=installer" \
+    -drive "file=$base/dotfiles-seed.iso,media=cdrom,readonly=on,id=dotfiles" \
+    -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+    -display gtk -vga virtio -boot order=c,once=d \
+    -serial "file:$base/console.log" -monitor "unix:$base/monitor.sock,server,nowait" \
+    -pidfile "$base/qemu.pid" -daemonize
+
+printf '\nUbuntu Desktop installer launched. Choose Try or Install, then install to the VM disk only.\n'
+printf 'After the first reboot, log in and run the script on the DOTFILES volume:\n'
+printf '  bash /media/$USER/DOTFILES/provision-from-seed.sh\n'
+printf 'The guest disk is 40 GiB; the installer cannot access the host disk.\n'
+printf 'Evidence and QEMU controls: %s\n' "$base"

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Restart the installed Desktop guest without booting its installer ISO.
+set -euo pipefail
+if [[ $# != 1 ]]; then
+    printf 'Usage: %s EVIDENCE_DIRECTORY\n' "$0" >&2
+    exit 2
+fi
+base=$(cd -- "$1" && pwd)
+[[ -f "$base/guest.qcow2" && -f "$base/OVMF_VARS.fd" && -f "$base/dotfiles-seed.iso" ]] || {
+    printf 'Not a completed Desktop VM evidence directory: %s\n' "$base" >&2
+    exit 1
+}
+if [[ -f "$base/qemu.pid" ]] && kill -0 "$(cat "$base/qemu.pid")" 2>/dev/null; then
+    printf 'QEMU is already running for %s\n' "$base" >&2
+    exit 1
+fi
+[[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] || { printf '%s\n' 'A graphical session is required.' >&2; exit 1; }
+[[ -r /dev/kvm && -w /dev/kvm ]] || { printf '%s\n' 'KVM is unavailable.' >&2; exit 1; }
+ram=${VM_MEMORY_MIB:-4096}
+cpus=${VM_CPUS:-2}
+qemu-system-x86_64 -name dotfiles-resolute-desktop -enable-kvm -cpu host -smp "$cpus" -m "$ram" \
+    -machine q35 \
+    -drive "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd" \
+    -drive "if=pflash,format=raw,file=$base/OVMF_VARS.fd" \
+    -drive "file=$base/guest.qcow2,if=virtio,format=qcow2" \
+    -drive "file=$base/dotfiles-seed.iso,media=cdrom,readonly=on,id=dotfiles" \
+    -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+    -display gtk -vga virtio \
+    -serial "file:$base/console.log" -monitor "unix:$base/monitor.sock,server,nowait" \
+    -pidfile "$base/qemu.pid" -daemonize
+printf 'Started installed Desktop VM. Evidence directory: %s\n' "$base"

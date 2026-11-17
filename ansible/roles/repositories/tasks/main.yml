@@ -63,6 +63,7 @@
     replace: '# Disabled by laptop repository policy: \1'
     backup: true
   become: true
+  when: laptop_disable_partner_source | default(true) | bool
 
 - name: Explain the enabled-source scope
   ansible.builtin.debug:

@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Refresh the read-only dotfiles seed for an already installed Desktop guest.
+set -euo pipefail
+if [[ $# != 1 ]]; then
+    printf 'Usage: %s EVIDENCE_DIRECTORY\n' "$0" >&2
+    exit 2
+fi
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo=$(cd "$script_dir/../.." && pwd)
+base=$(cd -- "$1" && pwd)
+if [[ -f "$base/qemu.pid" ]] && kill -0 "$(cat "$base/qemu.pid")" 2>/dev/null; then
+    printf 'Shut down the VM before refreshing its DOTFILES disc.\n' >&2
+    exit 1
+fi
+for file in dotfiles-seed.iso dotfiles-snapshot.tar.gz dotfiles-snapshot.sha256; do
+    [[ -f "$base/$file" ]] || { printf 'Missing %s in %s\n' "$file" "$base" >&2; exit 1; }
+done
+command -v genisoimage >/dev/null || { printf '%s\n' 'Missing command: genisoimage' >&2; exit 1; }
+backup_tag=initial
+if [[ -e "$base/dotfiles-seed-initial.iso" || -e "$base/dotfiles-snapshot-initial.tar.gz" || -e "$base/dotfiles-snapshot-initial.sha256" ]]; then
+    backup_tag="previous-$(date -u +%Y%m%d-%H%M%S)"
+fi
+for file in "dotfiles-seed-$backup_tag.iso" "dotfiles-snapshot-$backup_tag.tar.gz" "dotfiles-snapshot-$backup_tag.sha256" "source-state-$backup_tag.txt"; do
+    [[ ! -e "$base/$file" ]] || { printf 'Refusing to overwrite preserved file: %s\n' "$base/$file" >&2; exit 1; }
+done
+tmp=$(mktemp -d "$base/.seed-refresh.XXXXXX")
+cleanup() { rm -rf -- "$tmp"; }
+trap cleanup EXIT
+
+# Copy tracked files and the same reviewed worktree additions allowed by the
+# clean Desktop runner. Never copy virtualenvs, caches, or .git metadata.
+python3 - "$repo" "$tmp/dotfiles-snapshot.tar.gz" <<'PY'
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+
+root, destination = Path(sys.argv[1]), Path(sys.argv[2])
+tracked = subprocess.check_output(['git', '-C', str(root), 'ls-files', '-z']).decode().split('\0')
+untracked = subprocess.check_output(['git', '-C', str(root), 'ls-files', '--others', '--exclude-standard', '-z']).decode().split('\0')
+allowed_untracked = {
+    'ansible/bootstrap-resolute', 'ansible/resolute.cfg', 'ansible/resolute.yml',
+    'ansible/run-resolute', 'ansible/vm-resolute/run',
+    'ansible/vm-resolute/provision-guest.sh', 'config/apt-repositories-resolute.json',
+    'ansible/vm-desktop-resolute/run', 'ansible/vm-desktop-resolute/start-installed',
+    'ansible/vm-desktop-resolute/stop', 'ansible/vm-desktop-resolute/eject-installer',
+    'ansible/vm-desktop-resolute/provision-from-seed.sh',
+    'ansible/vm-desktop-resolute/refresh-seed',
+    'ansible/roles/firefox_extensions/tasks/main.yml',
+    'config/firefox-extensions.json',
+}
+unexpected = {item for item in untracked if item and item not in allowed_untracked}
+if unexpected:
+    raise SystemExit('Refusing to copy unreviewed untracked files: ' + ', '.join(sorted(unexpected)))
+excluded = {'.git', '.hatch', '.hatch-resolute', '.direnv', '.venv-ansible'}
+paths = {item for item in tracked + untracked if item and not (set(Path(item).parts) & excluded)}
+with tarfile.open(destination, 'w:gz') as archive:
+    for relative in sorted(paths):
+        source = root / relative
+        if source.exists() or source.is_symlink():
+            archive.add(source, arcname=relative, recursive=False)
+PY
+sha256sum "$tmp/dotfiles-snapshot.tar.gz" | sed "s|$tmp/||" > "$tmp/dotfiles-snapshot.sha256"
+mkdir "$tmp/dotfiles-seed"
+cp "$tmp/dotfiles-snapshot.tar.gz" "$tmp/dotfiles-snapshot.sha256" "$script_dir/provision-from-seed.sh" "$tmp/dotfiles-seed/"
+genisoimage -quiet -output "$tmp/dotfiles-seed.iso" -volid DOTFILES -joliet -rock "$tmp/dotfiles-seed"
+{
+    printf 'branch: '; git -C "$repo" branch --show-current
+    printf 'head: '; git -C "$repo" rev-parse HEAD
+    printf 'worktree status:\n'
+    git -C "$repo" status --short
+    cat "$tmp/dotfiles-snapshot.sha256"
+} > "$tmp/source-state.txt"
+
+mv "$base/dotfiles-seed.iso" "$base/dotfiles-seed-$backup_tag.iso"
+mv "$base/dotfiles-snapshot.tar.gz" "$base/dotfiles-snapshot-$backup_tag.tar.gz"
+mv "$base/dotfiles-snapshot.sha256" "$base/dotfiles-snapshot-$backup_tag.sha256"
+if [[ -e "$base/source-state-updated.txt" ]]; then
+    mv "$base/source-state-updated.txt" "$base/source-state-$backup_tag.txt"
+fi
+mv "$tmp/dotfiles-snapshot.tar.gz" "$base/dotfiles-snapshot.tar.gz"
+mv "$tmp/dotfiles-snapshot.sha256" "$base/dotfiles-snapshot.sha256"
+mv "$tmp/dotfiles-seed.iso" "$base/dotfiles-seed.iso"
+mv "$tmp/source-state.txt" "$base/source-state-updated.txt"
+printf 'Updated DOTFILES disc for %s. Prior snapshot preserved as dotfiles-seed-%s.iso.\n' "$base" "$backup_tag"
+printf 'Start the installed VM, rerun provision-from-seed.sh, then opt in with --provision-lastpass.\n'
