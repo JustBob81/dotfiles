@@ -1,4 +1,4 @@
-# Laptop configuration: first Ansible milestone
+# Laptop configuration
 
 This is the first Ansible layer for the repaired Ubuntu 20.04 laptop. It is not
 an end-to-end fresh-machine recovery solution yet. Dotbot still manages user links.
@@ -131,6 +131,10 @@ Run from the repository root:
 # Preview/apply shared Python, pipx, and Hatch provisioning independently.
 ./ansible/run --check --provision-tools
 ./ansible/run --apply --provision-tools
+
+# Audit is automatic; explicitly enable Emacs/Codex provisioning.
+./ansible/run --check --provision-emacs
+./ansible/run --apply --provision-emacs
 ```
 
 Check mode does not change system configuration, but Ansible may create temporary
@@ -153,10 +157,13 @@ Ansible stops after a failed task; do not bypass failures with `ignore_errors`.
 
 - `group_vars/all.yml`: reviewed package groups and shared policy loading.
 - `inventories/local.yml`: this laptop over the local connection.
-- `laptop.yml`: platform and policy checks followed by the two roles.
+- `laptop.yml`: platform and policy checks followed by repository, package, shared-tool and Emacs roles.
 - `roles/repositories`: disabled-source enforcement.
 - `roles/packages`: package audit and optional installation.
 - `roles/shared_tools`: shared tool audit and opt-in provisioning using the root bootstrap.
+- `roles/emacs_tools`: complete Emacs checkout, standalone Codex/Mise and ACP provisioning.
+  See [Emacs recovery and validation](../docs/emacs-tools.md), including manual sign-in
+  and the current Snap/ACP validation blockers.
 
 Select packages intentionally; the historical full installer is not a package
 manifest. Credentials, IDrive configuration, encryption keys, private keys, and
@@ -170,6 +177,7 @@ shellcheck ansible/run ansible/bootstrap
 python ansible/tests/test_foundation.py
 python3 tests/test_repositories.py
 python tooling/test_shared_tools.py
+python tooling/test_emacs_tools.py
 ```
 
 These checks cover YAML parsing, preview/apply command dispatch, package opt-in,

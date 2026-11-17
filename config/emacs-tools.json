@@ -1,0 +1,44 @@
+{
+  "platform": "linux-x86_64",
+  "checkout": {
+    "home_relative_path": ".emacs.d",
+    "origin": "git@github.com:JustBob81/emacs.d.git",
+    "upstream": "https://github.com/purcell/emacs.d.git",
+    "initial_revision": "4d1c0d58e466ccf65786c9dbdac54bc35fe4e23f"
+  },
+  "emacs": {
+    "provider": "snap",
+    "name": "emacs",
+    "channel": "latest/stable",
+    "classic": true,
+    "last_verified_version": "31.1"
+  },
+  "binaries": {
+    "codex": {
+      "version": "0.167.0",
+      "url": "https://github.com/openai/codex/releases/download/rust-v0.167.0/codex-package-x86_64-unknown-linux-musl.tar.gz",
+      "archive_binary_names": [
+        "codex",
+        "codex-x86_64-unknown-linux-musl"
+      ],
+      "binary_sha256": "cdcb45aaa01d0f14e298985e09465aebccd47f64ecd298aea44814af7b62bbda",
+      "archive_sha256": "3bbf75e83de6b58aed28f2cf6e33ad423ec31fd4700a1457b94be557ea5a7c6e",
+      "target": "x86_64-unknown-linux-musl"
+    },
+    "mise": {
+      "version": "2026.11.4",
+      "url": "https://github.com/jdx/mise/releases/download/v2026.11.4/mise-v2026.11.4-linux-x64.tar.gz",
+      "archive_binary_names": [
+        "mise"
+      ],
+      "binary_sha256": "0296d9cba9324106d4e0962bb94a2072902f3658813aeb3b09504947bb8ddc2b"
+    }
+  },
+  "adapter_manifest": "tools/codex-acp/versions.env",
+  "patch": {
+    "supported_agent_shell": "20261107.1445",
+    "minimum_emacs_major": 31,
+    "helper": "tools/agent-shell/apply-fixes.el",
+    "patch_file": "tools/agent-shell/emacs31-20261107.1445.patch"
+  }
+}

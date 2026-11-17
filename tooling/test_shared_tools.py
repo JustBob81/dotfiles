@@ -64,6 +64,46 @@ class ToolingTests(unittest.TestCase):
                     extract_verified_archive(archive, destination, checksum)
                 self.assertFalse(destination.exists())
 
+    def parent_link_archive(self, directory, target, ancestor_link=False, hardlink=False):
+        archive = Path(directory) / 'links.tar.gz'
+        with tarfile.open(archive, 'w:gz') as stream:
+            referent = tarfile.TarInfo('python/share/terminfo/a/adm1178')
+            payload = b'terminfo fixture'
+            referent.size = len(payload)
+            stream.addfile(referent, io.BytesIO(payload))
+            if ancestor_link:
+                ancestor = tarfile.TarInfo('python/share/terminfo/a')
+                ancestor.type, ancestor.linkname = tarfile.SYMTYPE, 'elsewhere'
+                stream.addfile(ancestor)
+            alias = tarfile.TarInfo('python/share/terminfo/1/1178')
+            alias.type = tarfile.LNKTYPE if hardlink else tarfile.SYMTYPE
+            alias.linkname = target
+            stream.addfile(alias)
+        return archive, hashlib.sha256(archive.read_bytes()).hexdigest()
+
+    def test_internal_parent_relative_terminfo_alias_extracts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive, checksum = self.parent_link_archive(directory, '../a/adm1178')
+            destination = Path(directory) / 'output'
+            extract_verified_archive(archive, destination, checksum)
+            alias = destination / 'python/share/terminfo/1/1178'
+            self.assertTrue(alias.is_symlink())
+            self.assertEqual(alias.read_bytes(), b'terminfo fixture')
+
+    def test_parent_links_cannot_escape_or_use_indirect_targets(self):
+        cases = [('../../../../../escape', False, False),
+                 ('../a/missing', False, False),
+                 ('../a/adm1178', True, False),
+                 ('../a/adm1178', False, True)]
+        for target, ancestor, hardlink in cases:
+            with self.subTest(target=target, ancestor=ancestor, hardlink=hardlink), \
+                    tempfile.TemporaryDirectory() as directory:
+                archive, checksum = self.parent_link_archive(directory, target, ancestor, hardlink)
+                destination = Path(directory) / 'output'
+                with self.assertRaises(ValueError):
+                    extract_verified_archive(archive, destination, checksum)
+                self.assertFalse(destination.exists())
+
     def test_pipx_wrapper_quotes_paths_and_forwards_arguments(self):
         with tempfile.TemporaryDirectory(prefix='tooling space ') as directory:
             policy = load_policy(ROOT / 'config/shared-python-tools.json')

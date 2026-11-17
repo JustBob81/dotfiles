@@ -1,0 +1,70 @@
+---
+- name: Audit full Emacs checkout standalone tools and adapter without provisioning
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ playbook_dir }}/../bootstrap-emacs"
+  become: false
+  check_mode: false
+  changed_when: false
+  register: laptop_emacs_audit
+
+- name: Report Emacs tooling policy changes conflicts and warnings
+  ansible.builtin.debug:
+    msg: "{{ laptop_emacs_audit.stdout | from_json }}"
+
+- name: Refuse conflicting existing Emacs or tooling configuration before application
+  ansible.builtin.assert:
+    that:
+      - (laptop_emacs_audit.stdout | from_json).conflicts | length == 0
+    fail_msg: Resolve the reported conflicts manually; provisioning preserves existing files and remotes.
+  when: laptop_manage_emacs | bool
+
+- name: Preview requested Emacs and Codex provisioning
+  ansible.builtin.debug:
+    msg: "{{ (laptop_emacs_audit.stdout | from_json).changes }}"
+  changed_when: (laptop_emacs_audit.stdout | from_json).changes | length > 0
+  when:
+    - laptop_manage_emacs | bool
+    - ansible_check_mode
+
+- name: Ensure Emacs provisioning system prerequisites
+  ansible.builtin.apt:
+    name: [git, patch, snapd]
+    state: present
+    update_cache: false
+    auto_install_module_deps: false
+    fail_on_autoremove: true
+  become: true
+  when: laptop_manage_emacs | bool
+
+- name: Install missing Emacs classic Snap without refreshing an existing installation
+  ansible.builtin.command:
+    argv: [snap, install, emacs, --classic, --channel, latest/stable]
+    creates: /snap/emacs/current/meta/snap.yaml
+  become: true
+  register: laptop_emacs_snap_install
+  # Retry only transient Store/network failures. A rejected assertion, invalid
+  # channel, or other permanent error fails on the first attempt.
+  retries: 3
+  delay: 20
+  until: >-
+    laptop_emacs_snap_install.rc == 0 or
+    not (laptop_emacs_snap_install.stderr | lower | regex_search(
+      'unable to contact snap store|context deadline exceeded|client.timeout|request canceled while waiting for connection|connection timed out|temporary failure in name resolution|network is unreachable'))
+  when: laptop_manage_emacs | bool
+
+- name: Provision Emacs remotes standalone binaries links runtime and guarded patch
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ playbook_dir }}/../bootstrap-emacs"
+      - --apply
+  become: false
+  register: laptop_emacs_apply
+  changed_when: >-
+    ((laptop_emacs_apply.stdout | from_json).changed | bool)
+    if laptop_emacs_apply.rc == 0 else false
+  when:
+    - laptop_manage_emacs | bool
+    - not ansible_check_mode

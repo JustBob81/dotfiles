@@ -42,3 +42,5 @@
       tags: [packages]
     - role: shared_tools
       tags: [shared_tools]
+    - role: emacs_tools
+      tags: [emacs_tools]

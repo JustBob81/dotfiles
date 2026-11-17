@@ -34,3 +34,6 @@ laptop_manage_packages: false
 
 # Provision shared user tools only with --provision-tools.
 laptop_manage_shared_tools: false
+
+# Full personal emacs.d provisioning is separate from Python shared tools.
+laptop_manage_emacs: false

@@ -36,7 +36,7 @@ class FoundationTests(unittest.TestCase):
         self.assertIn('--check', call['args'])
         self.assertIn('--diff', call['args'])
         self.assertEqual(call['config'], str(self.wrapper_root / 'ansible/ansible.cfg'))
-        self.assertEqual(json.loads(call['args'][-1]), {'laptop_manage_packages': False, 'laptop_manage_shared_tools': False})
+        self.assertEqual(json.loads(call['args'][-1]), {'laptop_manage_packages': False, 'laptop_manage_shared_tools': False, 'laptop_manage_emacs': False})
 
     def test_application_requires_explicit_mode(self):
         result = self.run_wrapper('--apply')
@@ -44,14 +44,14 @@ class FoundationTests(unittest.TestCase):
         args = json.loads(result.stdout)['args']
         self.assertNotIn('--check', args)
         self.assertIn('--ask-become-pass', args)
-        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': False, 'laptop_manage_shared_tools': False})
+        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': False, 'laptop_manage_shared_tools': False, 'laptop_manage_emacs': False})
 
     def test_package_management_is_explicit(self):
         result = self.run_wrapper('--check', '--install-packages')
         self.assertEqual(result.returncode, 0, result.stderr)
         args = json.loads(result.stdout)['args']
         self.assertIn('--check', args)
-        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': True, 'laptop_manage_shared_tools': False})
+        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': True, 'laptop_manage_shared_tools': False, 'laptop_manage_emacs': False})
 
     def test_shared_tool_provisioning_requires_explicit_flag(self):
         result = self.run_wrapper('--check', '--provision-tools')
@@ -59,7 +59,15 @@ class FoundationTests(unittest.TestCase):
         args = json.loads(result.stdout)['args']
         self.assertIn('--check', args)
         self.assertEqual(json.loads(args[-1]),
-                         {'laptop_manage_packages': False, 'laptop_manage_shared_tools': True})
+                         {'laptop_manage_packages': False, 'laptop_manage_shared_tools': True, 'laptop_manage_emacs': False})
+
+    def test_emacs_provisioning_requires_explicit_flag(self):
+        result = self.run_wrapper('--check', '--provision-emacs')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        args = json.loads(result.stdout)['args']
+        self.assertIn('--check', args)
+        self.assertEqual(json.loads(args[-1]), {'laptop_manage_packages': False,
+                         'laptop_manage_shared_tools': False, 'laptop_manage_emacs': True})
 
     def test_unknown_flags_do_not_reach_ansible(self):
         result = self.run_wrapper('--apply', '--extra-vars', 'laptop_manage_packages=true')
@@ -70,6 +78,30 @@ class FoundationTests(unittest.TestCase):
         for path in (ROOT / 'ansible').rglob('*.yml'):
             with self.subTest(path=path):
                 self.assertIsNotNone(yaml.safe_load(path.read_text()))
+
+    @unittest.skipUnless((ROOT / '.hatch/bin/ansible-playbook').is_file(), 'project Ansible required')
+    def test_failed_emacs_command_preserves_original_failure_without_json_error(self):
+        tasks = yaml.safe_load((ROOT / 'ansible/roles/emacs_tools/tasks/main.yml').read_text())
+        condition = next(t['changed_when'] for t in tasks if t.get('register') == 'laptop_emacs_apply')
+        fixture = [{'hosts': 'localhost', 'gather_facts': False, 'tasks': [{
+            'block': [{'ansible.builtin.command': {'argv': ['/usr/bin/python3', '-c',
+                       'import sys; sys.stderr.write("original timeout diagnostic"); sys.exit(9)']},
+                       'register': 'laptop_emacs_apply', 'changed_when': condition}],
+            'rescue': [{'ansible.builtin.assert': {'that': [
+                'ansible_failed_result.rc == 9',
+                'ansible_failed_result.stderr == "original timeout diagnostic"',
+                '"changed_when" not in ansible_failed_result.msg']}}]}]}]
+        with tempfile.TemporaryDirectory() as directory:
+            playbook = Path(directory) / 'failure.yml'
+            playbook.write_text(yaml.safe_dump(fixture))
+            result = subprocess.run([str(ROOT / '.hatch/bin/ansible-playbook'),
+                '-i', 'localhost,', '-c', 'local', '-e', 'ansible_python_interpreter=/usr/bin/python3',
+                str(playbook)], cwd=directory, capture_output=True, text=True,
+                env={**os.environ, 'ANSIBLE_LOCAL_TEMP': directory + '/tmp', 'ANSIBLE_NOCOLOR': '1'},
+                timeout=60)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('rescued=1', result.stdout)
+            self.assertNotIn('Error while evaluating conditional', result.stdout + result.stderr)
 
     def test_partner_rewrite_preserves_other_sources_and_is_repeatable(self):
         tasks = yaml.safe_load((ROOT / 'ansible/roles/repositories/tasks/main.yml').read_text())
