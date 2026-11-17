@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import platform
+import posixpath
 import re
 import shlex
 import shutil
@@ -79,17 +80,33 @@ def extract_verified_archive(archive, destination, checksum):
         raise ValueError('Python archive checksum mismatch; nothing extracted')
     with tarfile.open(str(archive), 'r:gz') as stream:
         members = stream.getmembers()
+        entries = {PurePosixPath(item.name): item for item in members}
+        if len(entries) != len(members):
+            raise ValueError('Duplicate Python archive member')
         # The reviewed archive extracts under python/. Reject traversal and devices.
         for member in members:
             path = PurePosixPath(member.name)
             if path.is_absolute() or '..' in path.parts or not path.parts or path.parts[0] != 'python':
                 raise ValueError('Unsafe Python archive member')
-            if member.isdev() or member.isfifo():
+            if not (member.isdir() or member.isfile() or member.issym() or member.islnk()):
                 raise ValueError('Unsupported Python archive member')
+            if any(entries[parent].issym() or entries[parent].islnk()
+                   for parent in path.parents if parent in entries):
+                raise ValueError('Python archive member has a link ancestor')
             if member.issym() or member.islnk():
                 target = PurePosixPath(member.linkname)
-                if target.is_absolute() or '..' in target.parts:
+                if target.is_absolute():
                     raise ValueError('Unsafe Python archive link')
+                # Symlinks are relative to their parent; tar hardlinks are
+                # relative to the archive root. Do not conflate their semantics.
+                if '..' in target.parts:
+                    normalized = PurePosixPath(posixpath.normpath(str(path.parent / target)))
+                    referent = entries.get(normalized)
+                    if (not member.issym() or not normalized.parts or normalized.parts[0] != 'python' or
+                            referent is None or not referent.isfile() or
+                            any(entries[parent].issym() or entries[parent].islnk()
+                                for parent in normalized.parents if parent in entries)):
+                        raise ValueError('Unsafe Python archive link')
         if hasattr(tarfile, 'data_filter'):
             stream.extractall(str(destination), filter='data')
         else:

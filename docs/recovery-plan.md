@@ -122,3 +122,24 @@ Live provisioning succeeded on the repaired laptop: one changed task on first
 application, then `changed=0 failed=0` on the repeat. pipx 1.17.6 and Hatch 1.18.2
 match policy, and the audit reports no drift or missing system packages.
 Fresh-machine archive installation and a complete restore still need validation.
+
+
+## Emacs and Codex provisioning
+
+The complete private `~/.emacs.d` checkout and both remotes are now declared in
+`config/emacs-tools.json`. Its sources remain in that repository. The opt-in
+`--provision-emacs` role preserves existing checkouts and provisions standalone
+Codex, Mise, repository-owned links, and the manifest-selected ACP runtime.
+The historical emacs-local repository is superseded. See
+[Emacs recovery](emacs-tools.md) for commands, package patch guards, authentication,
+validation blockers, and the limits of version pinning. Current Snap execution
+and authenticated ACP validation must be repeated in a normal local terminal
+before this recovery checkpoint can be considered complete.
+
+Fresh-VM testing found gaps hidden by the repaired laptop. Dotfiles now handles
+internal Python archive aliases, a longer bounded cold package bootstrap, and
+clearer command-failure reporting. The Emacs `session` dependency fix is committed
+as `4d1c0d58e466ccf65786c9dbdac54bc35fe4e23f`, now selected by the initial-revision
+pin. The Emacs session reports startup/shutdown and all three ERT tests passed. The VM's successful
+continuation required retries and a signed Snap workaround; it is not clean replay
+evidence. See [the November 16 VM findings](vm-test-20261116.md).
