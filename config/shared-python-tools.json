@@ -23,5 +23,6 @@
     "python-lsp-server": {"version": "1.15.0", "commands": ["pylsp"]},
     "yamllint": {"version": "1.38.0", "commands": ["yamllint"]}
   },
+  "hatch_python_distributions": ["3.9", "3.10"],
   "system_packages": ["direnv"]
 }

@@ -10,6 +10,50 @@ use_nvm() {
   layout node
 }
 
+# Select the interpreter declared by Pipfile from Hatch-managed Python builds.
+# Runtime installation is explicit through bootstrap-tools, never triggered by cd.
+layout_pipenv() {
+  local pipfile="${PIPENV_PIPFILE:-Pipfile}"
+  if [[ ! -f "$pipfile" ]]; then
+    log_error "No Pipfile found at $pipfile."
+    return 1
+  fi
+  watch_file "$pipfile"
+
+  if [[ -z "${PIPENV_PYTHON:-}" ]]; then
+    local python_version
+    python_version=$(awk -F= '
+      /^\[requires\][[:space:]]*$/ { in_requires=1; next }
+      /^\[/ { in_requires=0 }
+      in_requires && /^[[:space:]]*python_version[[:space:]]*=/ {
+        value=$2
+        gsub(/[[:space:]"]/, "", value)
+        print value
+        exit
+      }
+    ' "$pipfile")
+    if [[ -n "$python_version" ]]; then
+      local hatch_python
+      if ! hatch_python=$(hatch python find "$python_version" 2>/dev/null); then
+        log_error "Hatch Python $python_version is missing. Run ./bootstrap-tools --apply, then reload direnv."
+        return 1
+      fi
+      export PIPENV_PYTHON="$hatch_python"
+    fi
+  fi
+
+  export PIPENV_VENV_IN_PROJECT=1
+  local venv
+  venv=$(pipenv --venv 2>/dev/null || true)
+  if [[ -z "$venv" || ! -d "$venv" ]]; then
+    log_error 'No Pipenv environment exists. Create and sync it explicitly after reviewing the Pipfile.lock.'
+    return 1
+  fi
+  PATH_add "$venv/bin"
+  export PIPENV_ACTIVE=1
+  export VIRTUAL_ENV="$venv"
+}
+
 layout_poetry() {
   if [[ ! -f pyproject.toml ]]; then
     log_error 'No pyproject.toml found.  Use `poetry new` or `poetry init` to create one first.'

@@ -22,7 +22,8 @@ def run(args, env=None):
     result = subprocess.run([str(a) for a in args], env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode:
-        raise RuntimeError('{} failed:\n{}'.format(Path(str(args[0])).name, result.stderr[-4000:]))
+        details = '\n'.join(part[-4000:] for part in (result.stderr, result.stdout) if part)
+        raise RuntimeError('{} failed:\n{}'.format(Path(str(args[0])).name, details))
     return result.stdout.strip()
 
 
@@ -78,6 +79,10 @@ def load_policy(path):
             raise ValueError('An explicit {} release is required'.format(name))
         if application.get('commands') != expected_applications[name]:
             raise ValueError('Declare the reviewed executable names for {}'.format(name))
+    distributions = policy.get('hatch_python_distributions')
+    if (not isinstance(distributions, list) or len(distributions) != len(set(distributions)) or
+            any(not re.fullmatch(r'\d+\.\d+', version) for version in distributions)):
+        raise ValueError('Declare unique Hatch Python major.minor distributions')
     if policy['system_packages'] != ['direnv']:
         raise ValueError('Review changes to the system prerequisite policy')
     return policy
@@ -179,6 +184,15 @@ class SharedTools:
             for command in application['commands']:
                 if (self.bin / command).resolve() != (environment / 'bin' / command).resolve():
                     changes.append('publish shared {} command'.format(command))
+        hatch = self.bin / 'hatch'
+        for version in self.policy['hatch_python_distributions']:
+            if not hatch.is_file():
+                changes.append('install Hatch-managed Python {}'.format(version))
+                continue
+            result = subprocess.run([str(hatch), 'python', 'find', version], text=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            if result.returncode or not Path(result.stdout.strip()).is_file():
+                changes.append('install Hatch-managed Python {}'.format(version))
         missing = []
         for name in self.policy['system_packages']:
             result = subprocess.run(['dpkg-query', '-W', '-f=${Status}', name],
@@ -282,6 +296,11 @@ class SharedTools:
                         raise ValueError('Temporary {} link exists; inspect it before retrying'.format(command))
                     staged_link.symlink_to(desired)
                     os.replace(str(staged_link), str(entry))
+        missing_python_distributions = [
+            version for version in self.policy['hatch_python_distributions']
+            if 'install Hatch-managed Python {}'.format(version) in self.audit()['changes']]
+        if missing_python_distributions:
+            run([self.bin / 'hatch', 'python', 'install', *missing_python_distributions, '--private'])
         after = self.audit()
         if after['changes']:
             raise ValueError('Tooling did not converge: ' + ', '.join(after['changes']))

@@ -24,6 +24,7 @@ class ToolingTests(unittest.TestCase):
         self.assertEqual(policy['applications']['pipenv']['version'], '2026.10.4')
         self.assertEqual(policy['applications']['python-lsp-server']['version'], '1.15.0')
         self.assertEqual(policy['applications']['yamllint']['version'], '1.38.0')
+        self.assertEqual(policy['hatch_python_distributions'], ['3.9', '3.10'])
         self.assertEqual(len(policy['python']['sha256']), 64)
 
     def test_paths_cannot_escape_user_directories(self):

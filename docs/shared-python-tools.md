@@ -7,6 +7,8 @@
   checksum, install location, pipx version, and shared application versions.
 - pipx owns shared Python applications: Hatch, PDM, Poetry, pip-tools, Pipenv,
   python-lsp-server, and yamllint are available as user commands to all projects.
+- Hatch owns private Python 3.9 and 3.10 distributions required by existing
+  Pipenv projects.
 - Hatch owns each project's `.hatch` virtual environment.
 - direnv selects the project environment and unloads it on leaving the directory.
 
@@ -16,7 +18,8 @@ The Ansible role calls the same bootstrap, avoiding two provisioning implementat
 
 ## Current profile and provenance
 
-The reviewed profile is Linux x86_64, CPython 3.12.16, pipx 1.17.6, Hatch
+The reviewed profile is Linux x86_64, CPython 3.12.16, Hatch-managed Python 3.9
+and 3.10, pipx 1.17.6, Hatch
 1.18.2, PDM 2.29.7, Poetry 2.5.1, pip-tools 7.7.0, Pipenv 2026.10.4,
 python-lsp-server 1.15.0, and yamllint 1.38.0. These are explicit version
 decisions, not rolling
@@ -51,9 +54,11 @@ application environment uses the declared standalone Python; unrelated pipx
 environments remain untouched. Pyenv initialization has been removed from shell
 startup and fresh setup. The existing `~/.pyenv` checkout and its Python versions
 are retained as an inert local recovery copy. All managed pipx apps now use the
-declared standalone Python. Existing project virtual environments still refer to
-the old Python 3.9.2 and 3.10.0 paths, so remove the pyenv runtime data only after
-those projects migrate their interpreters.
+declared standalone Python. The active `waterRA` and `advent_code_2021` Pipenv
+environments now use Hatch-managed Python 3.9.25 and 3.10.22 respectively. Their
+former pyenv environments remain in the laptop-tools backup directory. Keep the
+pyenv runtime data until the project environments and other consumers have been
+reviewed; no pyenv data was deleted during migration.
 
 `XDG_DATA_HOME`, when set, determines the data-directory prefix. Backups are
 stored under that prefix's `laptop-tools/backups`. A pre-existing pipx launcher
@@ -72,7 +77,7 @@ Starting from a clean Ubuntu installation with working official repositories:
 sudo apt-get install git python3 ca-certificates direnv
 # Clone this repository, then enter it.
 ./bootstrap-tools              # audit only: no downloads or installs
-./bootstrap-tools --apply      # user-local Python/pipx and declared CLI provisioning
+./bootstrap-tools --apply      # user-local Python, pipx, CLIs and project runtimes
 export PATH="$HOME/.local/bin:$PATH"
 ./ansible/bootstrap            # Hatch creates/synchronizes project .hatch
 # Review .envrc and its helper before authorizing.
@@ -111,6 +116,36 @@ managed app's interpreter changes, the bootstrap backs up its environment and
 command links, uninstalls that pipx environment, and recreates it with the declared
 Python; pipx `--force` alone would not change the interpreter. Fresh-machine
 archive download/extraction remains untested.
+
+For Pipenv projects, `layout_pipenv` reads `python_version` from the Pipfile and
+sets `PIPENV_PYTHON` to the matching Hatch-managed runtime. Run
+`./bootstrap-tools --apply` before entering those projects on a fresh machine.
+Hatch selects the current patch release within each declared Python minor line;
+the Pipfiles do not pin the interpreter patch version. Existing environments are
+left as they are. If a project environment is missing, direnv reports that and
+does not install project dependencies on directory entry; create and sync it
+explicitly after reviewing the lockfile.
+
+One compatibility edge is known on the current profile: Pipenv 2026.10.4 bundles
+a pip runner requiring Python 3.10+, so `pipenv sync` cannot install a Python 3.9
+environment. For a locked Python 3.9 project, use its selected Hatch interpreter
+to create `.venv`, export locked requirements with hashes using
+`pipenv requirements --dev --hash`, and install them with that environment's pip
+and `--require-hashes`. This preserves the lockfile and uses pip compatible with
+Python 3.9. This was used to migrate `waterRA`; `pip check` passed. The Python
+3.10 `advent_code_2021` lock includes `lazy-object-proxy==1.6.0`, which builds
+from source on that interpreter. Its legacy build expects `pkg_resources`,
+removed from setuptools 82, so sync requires a temporary build constraint such
+as `setuptools<82` via `PIP_BUILD_CONSTRAINT`. This was used for the migration;
+`pip check` passed. Neither migration changed its Pipfile or lockfile. Previous
+and failed venvs are preserved under
+`~/.local/share/laptop-tools/backups/python-project-venvs/` (or the equivalent
+`XDG_DATA_HOME` location).
+
+The Pipfiles and lockfiles remain in their respective project directories; they
+are not copied into dotfiles. A fresh restore needs those project files as well
+as this repository. When recreating `advent_code_2021`, apply the setuptools build
+constraint during `pipenv sync --dev` as described above.
 
 Existing incompatible Python directories, conflicting compatibility aliases, and
 incomplete pipx environments stop provisioning for inspection. Failed package

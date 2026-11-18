@@ -131,17 +131,23 @@ direnv selects it on directory entry. Do not install Hatch into the project venv
 Shared tool provisioning is declared in `../config/shared-python-tools.json`.
 From a normal terminal, `./bootstrap-tools` audits it and
 `./bootstrap-tools --apply` provisions the independent Python, isolated pipx,
-and shared Hatch/PDM/Poetry/pip-tools/Pipenv/python-lsp-server commands before the
-project environment exists. No uv installation is required. The Ansible shared-tools
-role consumes this same implementation.
+shared Hatch/PDM/Poetry/pip-tools/Pipenv/python-lsp-server/yamllint commands, and
+the private Python 3.9/3.10 runtimes required by Pipfile projects before their
+project environments exist. `layout_pipenv` selects the Hatch runtime declared by
+each Pipfile and activates an existing environment without installing project
+dependencies on directory entry. A missing environment must be created and
+synced explicitly; the guide documents the Python 3.9 Pipenv compatibility
+workaround. No uv installation is required. The Ansible shared-tools role
+consumes this same implementation.
 See [the full bootstrap and migration guide](../docs/shared-python-tools.md).
 
 The historical Python location is retained as a persistent declared location;
 managed pipx applications move off their older pyenv interpreter. Existing
-unrelated pipx apps are preserved. Pyenv shell initialization is retired, while
-its old runtime files remain as a local recovery copy until dependent projects
-and applications are reviewed. Directory paths, launcher backups, version pins,
-system prerequisites, and fresh-shell direnv setup are documented in that guide.
+unrelated pipx apps are preserved. Pyenv shell initialization is retired. The
+reviewed Pipenv project environments now use Hatch-managed Python 3.9 and 3.10;
+the old pyenv checkout and runtimes remain as local recovery copies. Directory
+paths, launcher backups, version pins, system prerequisites, and fresh-shell
+direnv setup are documented in that guide.
 
 From the repository root, leave the previously activated environment if needed,
 then create/synchronize the Hatch environment:
