@@ -1,0 +1,15 @@
+{
+  "platform": "linux-x86_64",
+  "fnm": {
+    "version": "1.39.0",
+    "url": "https://github.com/Schniz/fnm/releases/download/v1.39.0/fnm-linux.zip",
+    "sha256": "7807664f39d39fc518da1c35ba0181e4b3267603c4b1dedeb4b5fc6ae440a224",
+    "data_relative_path": "laptop-tools/fnm-1.39.0",
+    "bin_relative_path": ".local/bin/fnm"
+  },
+  "node": {
+    "data_relative_path": "fnm",
+    "project_versions": ["14.18.3", "16.13.2"],
+    "default": "26.13.1"
+  }
+}

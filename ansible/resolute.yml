@@ -14,6 +14,7 @@
         - direnv
         - git
         - gnupg
+        - libatomic1
         - zsh
     laptop_enabled_package_groups: [base]
     laptop_manage_packages: false

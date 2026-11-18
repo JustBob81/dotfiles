@@ -141,6 +141,12 @@ workaround. No uv installation is required. The Ansible shared-tools role
 consumes this same implementation.
 See [the full bootstrap and migration guide](../docs/shared-python-tools.md).
 
+Node.js uses fnm in a separate user-local layer. `./bootstrap-node-tools` audits
+fnm and the reviewed project Node versions; `./bootstrap-node-tools --apply`
+installs them and sets the outside-project default to the reviewed latest LTS.
+The manifest pins Node 26.13.1 until a later LTS update is reviewed. The
+existing `.nvmrc` pins are preserved. See [Node.js tooling](../docs/node-tools.md).
+
 The historical Python location is retained as a persistent declared location;
 managed pipx applications move off their older pyenv interpreter. Existing
 unrelated pipx apps are preserved. Pyenv shell initialization is retired. The

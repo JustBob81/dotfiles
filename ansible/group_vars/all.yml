@@ -18,6 +18,7 @@ laptop_package_groups:
     - curl
     - git
     - gnupg
+    - libatomic1
     - zsh
   backup_prerequisites:
     - build-essential

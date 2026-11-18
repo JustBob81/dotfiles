@@ -1,14 +1,18 @@
-use_nvm() {
+use_fnm() {
   watch_file .nvmrc
-  local NVM_PATH="$HOME/.nvm/nvm.sh"
-  if ! [ -f "$NVM_PATH" ]; then
-    echo "Installing NVM" >&2
-    curl -o- https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+  local fnm_path="$HOME/.local/bin/fnm"
+  if ! [ -x "$fnm_path" ]; then
+    log_error 'fnm is missing. Run ./bootstrap-node-tools --apply, then reload direnv.'
+    return 1
   fi
-  . "${NVM_PATH}"
-  nvm install
+  export FNM_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fnm"
+  eval "$("$fnm_path" env --shell bash)"
+  "$fnm_path" use || return 1
   layout node
 }
+
+# Keep the old helper name working while projects migrate to fnm.
+use_nvm() { use_fnm "$@"; }
 
 # Select the interpreter declared by Pipfile from Hatch-managed Python builds.
 # Runtime installation is explicit through bootstrap-tools, never triggered by cd.

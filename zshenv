@@ -11,7 +11,11 @@ export PATH="$RENV_ROOT/bin:$PATH"
 export PATH="$PATH:$HOME/.rvm/bin"
 
 export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Retained for legacy global npm tools during migration.
+if [ -x "$HOME/.local/bin/fnm" ]; then
+    export FNM_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fnm"
+    eval "$("$HOME/.local/bin/fnm" env --use-on-cd --shell zsh)"
+fi
 
 # Add krew to Path
 export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
