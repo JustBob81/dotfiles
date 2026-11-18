@@ -27,37 +27,6 @@ else
         | sh /dev/stdin
 fi
 
-if command -v pipx &> /dev/null; then
-   echo 'pipx - already installed.'
-else
-    python3 -m pip install --user pipx
-    python3 -m pipx ensurepath
-fi
-
-if command -v yamllint &> /dev/null; then
-    echo 'yamllint - already installed.'
-else
-    pipx install yamllint
-fi
-
-if command -v pylsp &> /dev/null; then
-    echo 'python-lsp-server - already installed.'
-else
-    pipx install python-lsp-server
-fi
-
-if command -v pipenv &> /dev/null; then
-    echo 'pipenv - already installed.'
-else
-    pipx install pipenv
-fi
-
-if command -v pip-compile &> /dev/null; then
-    echo 'pip-tools - already installed.'
-else
-    pipx install pip-tools
-fi
-
 if [ -d ~/.antigen ]; then
     echo 'antigen - already installed.'
 else
@@ -70,12 +39,6 @@ else
     git clone https://github.com/jcrodriguez1989/renv-installer.git ~/.renv
 fi
 
-
-if [ -d ~/.pyenv ]; then
-    echo 'pyenv - already installed'
-else
-    git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-fi
 
 if [ -d ~/.tmux ]; then
     echo 'tmux configuration - already installed'

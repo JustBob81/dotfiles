@@ -111,17 +111,21 @@ provisioning and supported-LTS profiles remain subsequent milestones.
 
 ## Shared tool provisioning
 
-The next branch declares persistent user-level Python, pipx, and Hatch in
+The shared tooling branch declares persistent user-level Python, pipx, and CLI tools in
 `config/shared-python-tools.json`, with a standard-library bootstrap usable before
 Ansible exists. direnv is a declared APT prerequisite. The default run only audits;
 `--provision-tools` explicitly enables user-level provisioning. The old Python
-location and pipx application home are retained to preserve dependents. No uv
+location and pipx application home are retained to preserve dependents. Pyenv shell
+initialization is retired and all managed pipx apps have moved to the declared
+Python. Existing project virtual environments still point to pyenv's Python 3.9.2
+and 3.10.0; preserve those runtime files until those project environments migrate.
+No uv
 installation is needed on a fresh machine. See
 [shared Python tooling](shared-python-tools.md) for preview and validation steps.
 Live provisioning succeeded on the repaired laptop: one changed task on first
-application, then `changed=0 failed=0` on the repeat. pipx 1.17.6 and Hatch 1.18.2
-match policy, and the audit reports no drift or missing system packages.
-Fresh-machine archive installation and a complete restore still need validation.
+application, then `changed=0 failed=0` on the repeat. The shared tools audit now
+reports no drift across all declared CLI apps. Fresh-machine archive installation
+and a complete restore still need validation.
 
 
 ## Emacs and Codex provisioning
