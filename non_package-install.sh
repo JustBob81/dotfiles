@@ -48,13 +48,6 @@ else
     cp ~/.tmux/.tmux.conf.local ~/.tmux.conf.local
 fi
 
-if [ -d ~/.nvm ]; then
-    echo 'nvm already installed'
-else
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh \
-        | bash
-fi
-
 if [ -d ~/.krew ]; then
     echo 'krew already installed.'
 else

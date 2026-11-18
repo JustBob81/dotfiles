@@ -122,11 +122,14 @@ fi
 
 export PIPENV_VENV_IN_PROJECT=1
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # Retained for legacy global npm tools during migration.
+unset NVM_DIR
 if [ -x "$HOME/.local/bin/fnm" ]; then
   export FNM_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fnm"
   eval "$("$HOME/.local/bin/fnm" env --use-on-cd --shell bash)"
 fi
+
+# Keep shared Node CLI tools independent of individual fnm installations.
+export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/laptop-tools/pnpm-home"
+export PATH="$PNPM_HOME/bin:$PATH"
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
