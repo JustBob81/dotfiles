@@ -23,7 +23,7 @@
     - laptop_manage_shared_tools | bool
     - ansible_check_mode
 
-- name: Provision shared Python pipx and Hatch when explicitly requested
+- name: Provision shared Python pipx applications when explicitly requested
   ansible.builtin.command:
     argv:
       - /usr/bin/python3

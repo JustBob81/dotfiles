@@ -15,7 +15,13 @@
     "bin_relative_path": ".local/bin"
   },
   "applications": {
-    "hatch": {"version": "1.18.2"}
+    "hatch": {"version": "1.18.2", "commands": ["hatch"]},
+    "pdm": {"version": "2.29.7", "commands": ["pdm"]},
+    "poetry": {"version": "2.5.1", "commands": ["poetry"]},
+    "pip-tools": {"version": "7.7.0", "commands": ["pip-compile", "pip-sync"]},
+    "pipenv": {"version": "2026.10.4", "commands": ["pipenv"]},
+    "python-lsp-server": {"version": "1.15.0", "commands": ["pylsp"]},
+    "yamllint": {"version": "1.38.0", "commands": ["yamllint"]}
   },
   "system_packages": ["direnv"]
 }

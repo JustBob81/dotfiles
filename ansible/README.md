@@ -128,17 +128,20 @@ it with pipx, which owns its isolated application environment and exposes `hatch
 in `$HOME/.local/bin`. Hatch then owns each project's `.hatch` environment;
 direnv selects it on directory entry. Do not install Hatch into the project venv.
 
-Shared tool provisioning is now declared in `../config/shared-python-tools.json`.
+Shared tool provisioning is declared in `../config/shared-python-tools.json`.
 From a normal terminal, `./bootstrap-tools` audits it and
 `./bootstrap-tools --apply` provisions the independent Python, isolated pipx,
-and shared Hatch command before the project environment exists. No uv installation
-is required. The Ansible shared-tools role consumes this same implementation.
+and shared Hatch/PDM/Poetry/pip-tools/Pipenv/python-lsp-server commands before the
+project environment exists. No uv installation is required. The Ansible shared-tools
+role consumes this same implementation.
 See [the full bootstrap and migration guide](../docs/shared-python-tools.md).
 
 The historical Python location is retained as a persistent declared location;
-pipx moves off its older pyenv interpreter. Existing unrelated pipx apps are
-preserved. Directory paths, launcher backups, version pins, system prerequisites,
-and fresh-shell direnv setup are documented in that guide.
+managed pipx applications move off their older pyenv interpreter. Existing
+unrelated pipx apps are preserved. Pyenv shell initialization is retired, while
+its old runtime files remain as a local recovery copy until dependent projects
+and applications are reviewed. Directory paths, launcher backups, version pins,
+system prerequisites, and fresh-shell direnv setup are documented in that guide.
 
 From the repository root, leave the previously activated environment if needed,
 then create/synchronize the Hatch environment:
@@ -153,8 +156,8 @@ direnv allow
 ```
 
 The repository's `.envrc` uses the shared `layout hatch` helper in
-`config/direnv/direnvrc`. Once allowed, direnv selects `.hatch/bin` ahead of pyenv
-shims and exports `VIRTUAL_ENV`, `HATCH_ENV`, `HATCH_ENV_TYPE_VIRTUAL_PATH`,
+`config/direnv/direnvrc`. Once allowed, direnv selects `.hatch/bin` ahead of the
+inherited PATH and exports `VIRTUAL_ENV`, `HATCH_ENV`, `HATCH_ENV_TYPE_VIRTUAL_PATH`,
 `PYTHONNOUSERSITE`, `PIP_REQUIRE_VIRTUALENV`, `ANSIBLE_CONFIG`, and
 `ANSIBLE_INVENTORY`. It unsets `PYTHONHOME`. Changes are unloaded when leaving
 the project. Your Antigen configuration already includes the direnv shell hook.
