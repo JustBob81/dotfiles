@@ -19,13 +19,11 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-# renv-installer initialization
-if command -v renv 1>/dev/null 2>&1; then
-  eval "$(renv init -)"
+source "$HOME/.dotfiles/tooling/disable-rvm-shell.sh"
+export MISE_GLOBAL_CONFIG_FILE="$HOME/.dotfiles/config/mise/config.toml"
+if [ -x "$HOME/.local/bin/mise" ]; then
+  eval "$("$HOME/.local/bin/mise" activate zsh)"
 fi
-
-[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
-
 
 if [ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then . "$HOME/.nix-profile/etc/profile.d/nix.sh"; fi # added by Nix installer
 

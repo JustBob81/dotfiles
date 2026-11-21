@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+config="$root/config/mise/config.toml"
+mode=${1:---check}
+if [[ $# -gt 1 || ( "$mode" != --check && "$mode" != --apply ) ]]; then
+  printf 'Usage: %s [--check|--apply]\n' "$0" >&2
+  exit 2
+fi
+
+mise="$HOME/.local/bin/mise"
+if [[ ! -x "$mise" ]]; then
+  printf 'Mise is missing at %s. Provision it with the Emacs tooling bootstrap first.\n' "$mise" >&2
+  exit 1
+fi
+
+ruby_version=$(sed -n 's/^ruby = "\([0-9][0-9.]*\)"$/\1/p' "$config")
+if [[ ! "$ruby_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  printf 'Expected one exact Ruby version in %s\n' "$config" >&2
+  exit 1
+fi
+
+data_home=${XDG_DATA_HOME:-$HOME/.local/share}
+ruby_bin="$data_home/mise/installs/ruby/$ruby_version/bin/ruby"
+export MISE_GLOBAL_CONFIG_FILE="$config"
+
+if [[ -x "$ruby_bin" ]] && "$ruby_bin" --version | grep -q "ruby $ruby_version"; then
+  printf '{"changed":false,"ruby_version":"%s","ruby":"%s"}\n' "$ruby_version" "$ruby_bin"
+  exit 0
+fi
+
+if [[ "$mode" == --check ]]; then
+  printf '{"changed":true,"planned_changes":["install Ruby %s with Mise"],"ruby":"%s"}\n' "$ruby_version" "$ruby_bin"
+  exit 0
+fi
+
+"$mise" install "ruby@$ruby_version"
+if [[ ! -x "$ruby_bin" ]] || ! "$ruby_bin" --version | grep -q "ruby $ruby_version"; then
+  printf 'Ruby installation did not match declared version %s\n' "$ruby_version" >&2
+  exit 1
+fi
+printf '{"changed":true,"installed":"%s","ruby":"%s"}\n' "$ruby_version" "$ruby_bin"

@@ -33,13 +33,6 @@ else
     curl -L git.io/antigen.zsh
 fi
 
-if [ -d ~/.renv ]; then
-    echo 'renv-installer - already installed.'
-else
-    git clone https://github.com/jcrodriguez1989/renv-installer.git ~/.renv
-fi
-
-
 if [ -d ~/.tmux ]; then
     echo 'tmux configuration - already installed'
 else

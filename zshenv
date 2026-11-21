@@ -3,12 +3,7 @@ if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
 fi
 
-# renv path
-export RENV_ROOT="$HOME/.renv"
-export PATH="$RENV_ROOT/bin:$PATH"
-
-# Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
-export PATH="$PATH:$HOME/.rvm/bin"
+export RIG_MODE=user
 
 unset NVM_DIR
 if [ -x "$HOME/.local/bin/fnm" ]; then

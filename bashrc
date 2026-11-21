@@ -117,10 +117,8 @@ if ! shopt -oq posix; then
 fi
 
 
-# Add RVM to PATH for scripting. Make sure this is the last PATH variable change.
-# export PATH="$PATH:$HOME/.rvm/bin"
-
 export PIPENV_VENV_IN_PROJECT=1
+export RIG_MODE=user
 
 unset NVM_DIR
 if [ -x "$HOME/.local/bin/fnm" ]; then
@@ -131,5 +129,11 @@ fi
 # Keep shared Node CLI tools independent of individual fnm installations.
 export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/laptop-tools/pnpm-home"
 export PATH="$PNPM_HOME/bin:$PATH"
+
+source "$HOME/.dotfiles/tooling/disable-rvm-shell.sh"
+export MISE_GLOBAL_CONFIG_FILE="$HOME/.dotfiles/config/mise/config.toml"
+if [ -x "$HOME/.local/bin/mise" ]; then
+  eval "$("$HOME/.local/bin/mise" activate bash)"
+fi
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash

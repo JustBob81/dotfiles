@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""Audit or provision user-local Rig, R, and the CRAN renv package."""
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'tooling'))
+from r_tools import main
+
+if __name__ == '__main__':
+    main()

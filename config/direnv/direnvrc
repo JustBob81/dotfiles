@@ -14,6 +14,42 @@ use_fnm() {
 # Keep the old helper name working while projects migrate to fnm.
 use_nvm() { use_fnm "$@"; }
 
+# Select an already-installed Rig R version from a project marker or renv.lock.
+# This never installs runtimes or packages during directory entry.
+use_rig() {
+  local version=""
+  if [[ -f .R-version ]]; then
+    watch_file .R-version
+    version=$(tr -d '[:space:]' < .R-version)
+  elif [[ -f renv.lock ]]; then
+    watch_file renv.lock
+    version=$(/usr/bin/python3 -c 'import json; print(json.load(open("renv.lock"))["R"]["Version"])' 2>/dev/null) || {
+      log_error 'Could not read the R version from renv.lock.'
+      return 1
+    }
+  else
+    return 0
+  fi
+
+  if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    log_error "Invalid exact R version '$version' in the project marker."
+    return 1
+  fi
+  local r_bin="${XDG_DATA_HOME:-$HOME/.local/share}/rig/r/$version/bin"
+  if [[ -x "$r_bin/R" && -x "$r_bin/Rscript" ]]; then
+    export RIG_MODE=user
+    PATH_add "$r_bin"
+    return 0
+  fi
+  if [[ -x /usr/bin/R && -x /usr/bin/Rscript ]] &&
+     /usr/bin/R --version 2>/dev/null | head -n 1 | grep -Fq "R version $version "; then
+    PATH_add /usr/bin
+    return 0
+  fi
+  log_error "R $version is missing. On glibc 2.34+ install it with Rig user mode; on older glibc use a matching system R."
+  return 1
+}
+
 # Select the interpreter declared by Pipfile from Hatch-managed Python builds.
 # Runtime installation is explicit through bootstrap-tools, never triggered by cd.
 layout_pipenv() {
