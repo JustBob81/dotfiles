@@ -48,6 +48,7 @@
       - "{{ laptop_application_repositories['ulauncher-dev'].key_path }}"
   register: laptop_ulauncher_existing_key
   changed_when: false
+  check_mode: false
   when: laptop_manage_ulauncher | default(false) | bool and laptop_ulauncher_paths.results[0].stat.exists
 
 - name: Preserve a conflicting Ulauncher signing key
@@ -364,6 +365,7 @@
   register: laptop_snap_list
   changed_when: false
   failed_when: false
+  check_mode: false
   when: laptop_manage_kubectl | bool or laptop_manage_google_cloud | bool
 
 - name: Preview missing kubectl Snap installation
@@ -429,6 +431,7 @@
       - "{{ laptop_application_repositories.mongodb.key_path }}"
   register: laptop_mongodb_existing_key
   changed_when: false
+  check_mode: false
   when: laptop_manage_mongodb | bool and laptop_mongodb_paths.results[0].stat.exists
 
 - name: Preserve a conflicting MongoDB signing key
