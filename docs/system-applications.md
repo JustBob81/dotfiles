@@ -8,6 +8,10 @@ repositories. Package installation remains opt-in.
 
 | Group | Provisioning | Notes |
 | --- | --- | --- |
+| Firefox | Firefox Snap from Ubuntu's `latest/stable` channel | Included by `--install-apps` for general browsing. The LastPass extension policy is also applied; sign-in and MFA remain manual. Ubuntu's browser is distributed as a Snap. |
+| Google Chrome | `google-chrome-stable` from Google's signed Stable APT repository | Included by `--install-apps` for project browser debugging. The key fingerprint is checked against Google's published Linux package key; Google's repository supplies browser updates. |
+| Image editor | Official GIMP Snap from the verified GIMP team publisher | Included by `--install-apps` on `latest/stable`; Snap updates follow the stable channel. |
+| Music streaming | Spotify Snap from its verified publisher | Included by `--install-apps` on `latest/stable`; Spotify sign-in remains manual. |
 | Containers | Ubuntu `docker.io` and `docker-compose-v2` | Uses Ubuntu packages, avoiding a Docker vendor source. Docker starts its daemon; Docker data and access policy remain separate. |
 | Keep-awake utility | Ubuntu `caffeine` package (2.9.14-1 in Resolute) | Included by `--install-apps`. Its fullscreen detection depends on X11-related libraries; verify its indicator and behavior in the GNOME Wayland VM. If that is limited, the Caffeine GNOME Shell extension has an active build for GNOME 50. |
 | Kubernetes client | `kubectl` from the official Kubernetes Snap | Snap follows its stable channel and updates automatically. Match its minor version to each cluster's supported version skew. `~/.kube` configuration and credentials are not managed. |

@@ -14,7 +14,202 @@
   when: >-
     laptop_manage_bruno | default(false) | bool or
     laptop_manage_ulauncher | default(false) | bool or
-    laptop_manage_albert | default(false) | bool
+    laptop_manage_albert | default(false) | bool or
+    laptop_manage_chrome | default(false) | bool
+
+- name: Preview requested Google Chrome installation
+  ansible.builtin.debug:
+    msg: Install Google Chrome Stable from Google's signed APT repository.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - laptop_application_packages.chrome.package_name not in ansible_facts.packages
+
+- name: Inspect Google Chrome signing key and source definitions
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ laptop_application_repositories['google-chrome'].key_path }}"
+    - "{{ laptop_application_repositories['google-chrome'].source_path }}"
+  register: laptop_chrome_paths
+  when: laptop_manage_chrome | default(false) | bool
+
+- name: Read existing Google Chrome signing key identity
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - "{{ laptop_application_repositories['google-chrome'].key_path }}"
+  register: laptop_chrome_existing_key
+  changed_when: false
+  check_mode: false
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[0].stat.exists
+
+- name: Preserve a conflicting Google Chrome signing key
+  ansible.builtin.assert:
+    that:
+      - laptop_application_repositories['google-chrome'].key_fingerprint in laptop_chrome_existing_key.stdout
+    fail_msg: >-
+      Existing Google Chrome keyring does not match Google's published Linux
+      package signing identity; inspect it manually before provisioning.
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[0].stat.exists
+
+- name: Read existing Google Chrome source definition
+  ansible.builtin.slurp:
+    src: "{{ laptop_application_repositories['google-chrome'].source_path }}"
+  register: laptop_chrome_source
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[1].stat.exists
+
+- name: Decode existing Google Chrome source definition
+  ansible.builtin.set_fact:
+    laptop_chrome_source_text: "{{ laptop_chrome_source.content | b64decode }}"
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[1].stat.exists
+
+- name: Preserve a conflicting Google Chrome source definition
+  ansible.builtin.assert:
+    that:
+      - >-
+        laptop_chrome_source_text | trim == laptop_application_repositories['google-chrome'].source_line or
+        (
+          '### THIS FILE IS AUTOMATICALLY CONFIGURED ###' in laptop_chrome_source_text and
+          'X-Repolib-Name: Google Chrome' in laptop_chrome_source_text and
+          'Types: deb' in laptop_chrome_source_text and
+          'URIs: https://dl.google.com/linux/chrome-stable/deb/' in laptop_chrome_source_text and
+          'Suites: stable' in laptop_chrome_source_text and
+          'Components: main' in laptop_chrome_source_text and
+          'Architectures: amd64' in laptop_chrome_source_text and
+          'Signed-By: /usr/share/keyrings/google-chrome.gpg' in laptop_chrome_source_text
+        )
+    fail_msg: >-
+      Existing Google Chrome source is neither the reviewed bootstrap source nor
+      Google's package-managed stable amd64 source at
+      {{ laptop_application_repositories['google-chrome'].source_path }}.
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[1].stat.exists
+
+- name: Preview the Google Chrome signing key download
+  ansible.builtin.debug:
+    msg: Download and verify Google's published Linux package signing key.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Create a temporary location for the Google Chrome signing key
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .google-chrome-key
+  register: laptop_chrome_key_temp
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Download and verify the Google Chrome signing key with retries
+  ansible.builtin.shell: |
+    set -euo pipefail
+    destination={{ laptop_chrome_key_temp.path | quote }}
+    url={{ laptop_application_repositories['google-chrome'].key_url | quote }}
+    expected={{ laptop_application_repositories['google-chrome'].key_fingerprint | quote }}
+    for attempt in 1 2 3; do
+      if curl --fail --location --silent --show-error \
+           --connect-timeout 10 --max-time 30 \
+           --output "$destination" "$url" &&
+         test -s "$destination" &&
+         gpg --batch --show-keys --with-colons "$destination" |
+           awk -F: -v expected="$expected" '$1 == "fpr" && $10 == expected { found=1 } END { exit !found }'; then
+        chmod 0600 "$destination"
+        exit 0
+      fi
+      rm -f "$destination"
+      sleep 2
+    done
+    printf 'Google signing key download was empty or failed fingerprint verification after three attempts.\n' >&2
+    exit 1
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Create the APT keyring directory for Google Chrome
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Install the verified Google Chrome signing key
+  ansible.builtin.copy:
+    src: "{{ laptop_chrome_key_temp.path }}"
+    dest: "{{ laptop_application_repositories['google-chrome'].key_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Remove the temporary Google Chrome key
+  ansible.builtin.file:
+    path: "{{ laptop_chrome_key_temp.path }}"
+    state: absent
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Declare the official Google Chrome Stable source
+  ansible.builtin.copy:
+    dest: "{{ laptop_application_repositories['google-chrome'].source_path }}"
+    content: "{{ laptop_application_repositories['google-chrome'].source_line }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: laptop_chrome_source_declaration
+  when:
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[1].stat.exists
+
+- name: Refresh package indexes for explicitly requested Google Chrome
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - (laptop_chrome_source_declaration.changed | default(false)) or
+      laptop_application_packages.chrome.package_name not in ansible_facts.packages
+
+- name: Install Google Chrome Stable from its verified APT source
+  ansible.builtin.apt:
+    name: "{{ laptop_application_packages.chrome.package_name }}"
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - laptop_application_packages.chrome.package_name not in ansible_facts.packages
 
 - name: Preview requested Ulauncher installation
   ansible.builtin.debug:
@@ -357,7 +552,11 @@
     fail_on_autoremove: true
     auto_install_module_deps: false
   become: true
-  when: laptop_manage_kubectl | bool or laptop_manage_google_cloud | bool
+  when: >-
+    laptop_manage_kubectl | bool or laptop_manage_google_cloud | bool or
+    laptop_manage_firefox | default(false) | bool or
+    laptop_manage_gimp | default(false) | bool or
+    laptop_manage_spotify | default(false) | bool
 
 - name: Inspect installed Snap packages
   ansible.builtin.command:
@@ -366,7 +565,77 @@
   changed_when: false
   failed_when: false
   check_mode: false
-  when: laptop_manage_kubectl | bool or laptop_manage_google_cloud | bool
+  when: >-
+    laptop_manage_kubectl | bool or laptop_manage_google_cloud | bool or
+    laptop_manage_firefox | default(false) | bool or
+    laptop_manage_gimp | default(false) | bool or
+    laptop_manage_spotify | default(false) | bool
+
+- name: Preview missing GIMP stable Snap installation
+  ansible.builtin.debug:
+    msg: Would install the official GIMP stable Snap from the verified GIMP team publisher.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_gimp | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^gimp\s') | list | length == 0
+
+- name: Install official GIMP stable Snap
+  ansible.builtin.command:
+    argv: [timeout, 300, snap, install, gimp, --channel=latest/stable]
+  register: laptop_gimp_install
+  retries: 3
+  delay: 10
+  until: laptop_gimp_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_gimp | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^gimp\s') | list | length == 0
+
+- name: Preview missing Spotify stable Snap installation
+  ansible.builtin.debug:
+    msg: Would install Spotify from its verified publisher's stable Snap.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_spotify | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^spotify\s') | list | length == 0
+
+- name: Install Spotify stable Snap
+  ansible.builtin.command:
+    argv: [timeout, 180, snap, install, spotify, --channel=latest/stable]
+  register: laptop_spotify_install
+  retries: 3
+  delay: 10
+  until: laptop_spotify_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_spotify | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^spotify\s') | list | length == 0
+
+- name: Preview missing Firefox stable Snap installation
+  ansible.builtin.debug:
+    msg: Would install Firefox from the official Ubuntu Snap channel.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_firefox | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^firefox\s') | list | length == 0
+
+- name: Install Firefox from the official Ubuntu stable Snap channel
+  ansible.builtin.command:
+    argv: [timeout, 120, snap, install, firefox, --channel=latest/stable]
+  register: laptop_firefox_install
+  retries: 3
+  delay: 10
+  until: laptop_firefox_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_firefox | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^firefox\s') | list | length == 0
 
 - name: Preview missing kubectl Snap installation
   ansible.builtin.debug:

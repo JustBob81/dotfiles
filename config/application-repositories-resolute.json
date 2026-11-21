@@ -10,6 +10,13 @@
     "source_path": "/etc/apt/sources.list.d/ulauncher.sources",
     "source_line": "Types: deb\nURIs: https://ppa.launchpadcontent.net/agornostal/ulauncher-dev/ubuntu\nSuites: resolute\nComponents: main\nSigned-By: /etc/apt/keyrings/ulauncher-archive-keyring.asc"
   },
+  "google-chrome": {
+    "key_url": "https://dl.google.com/linux/linux_signing_key.pub",
+    "key_path": "/etc/apt/keyrings/google-chrome.asc",
+    "key_fingerprint": "EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796",
+    "source_path": "/etc/apt/sources.list.d/google-chrome.sources",
+    "source_line": "Types: deb\nURIs: https://dl.google.com/linux/chrome/deb\nSuites: stable\nComponents: main\nArchitectures: amd64\nSigned-By: /etc/apt/keyrings/google-chrome.asc"
+  },
   "mongodb": {
     "version_series": "9.0",
     "key_url": "https://pgp.mongodb.com/server-9.asc",
