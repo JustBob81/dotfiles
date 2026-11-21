@@ -15,6 +15,7 @@ repositories. Package installation remains opt-in.
 | Containers | Ubuntu `docker.io` and `docker-compose-v2` | Uses Ubuntu packages, avoiding a Docker vendor source. Docker starts its daemon; Docker data and access policy remain separate. |
 | Keep-awake utility | Ubuntu `caffeine` package (2.9.14-1 in Resolute) | Included by `--install-apps`. Its fullscreen detection depends on X11-related libraries; verify its indicator and behavior in the GNOME Wayland VM. If that is limited, the Caffeine GNOME Shell extension has an active build for GNOME 50. |
 | Kubernetes client | `kubectl` from the official Kubernetes Snap | Snap follows its stable channel and updates automatically. Match its minor version to each cluster's supported version skew. `~/.kube` configuration and credentials are not managed. |
+| Local Kubernetes | Minikube 1.39.0 upstream Linux binary, pinned by SHA256 | Included by `--install-apps`. Only the CLI is installed; no cluster or container images are created. Start a cluster explicitly with `minikube start --driver=docker`. The Docker driver avoids nested virtualization, but Docker access must be available to the user. Minikube's current guidance lists 2 CPUs, 2 GiB memory, and 20 GiB free disk as baseline requirements. |
 | PostgreSQL | Ubuntu `postgresql` metapackage | Resolute selects its current supported major version. Package installation can create and start a local cluster. Database contents and migration are separate recovery work. |
 | MongoDB | MongoDB Community 9.0 APT repository and `mongodb-org` | MongoDB documents Resolute support for 9.0.4 and newer. The repository is added only when requested and its signing key fingerprint is checked. Installing the server can start `mongod`; existing data is not migrated. |
 | Haskell | Ubuntu `ghc`, `cabal-install`, and `haskell-stack` | Uses the Resolute archive versions. Project-specific compiler versions and packages remain project-managed. |
@@ -24,7 +25,7 @@ repositories. Package installation remains opt-in.
 | Google Cloud CLI | Official `google-cloud-cli` Snap | Optional and independent of Kubernetes. Google sign-in and account configuration remain manual. |
 
 `./ansible/run-resolute --check --install-apps` previews containers,
-PostgreSQL, Haskell, `kubectl`, Bruno, and Ulauncher.
+PostgreSQL, Haskell, `kubectl`, Minikube, Bruno, and Ulauncher.
 Add `--apply` to install them.
 The default launcher is Ulauncher. Albert can be selected explicitly with
 `--install-albert`; its current Resolute source is unavailable, so that choice

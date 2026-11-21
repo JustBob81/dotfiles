@@ -40,6 +40,7 @@
     laptop_manage_firefox: false
     laptop_manage_gimp: false
     laptop_manage_spotify: false
+    laptop_manage_minikube: false
     laptop_manage_emacs: false
   pre_tasks:
     - name: Require the maintained Resolute Ansible runtime

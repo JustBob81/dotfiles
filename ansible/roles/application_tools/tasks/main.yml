@@ -211,6 +211,137 @@
     - laptop_manage_chrome | default(false) | bool
     - laptop_application_packages.chrome.package_name not in ansible_facts.packages
 
+- name: Require the supported Minikube binary architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.architecture == 'x86_64'
+    fail_msg: This Minikube declaration currently supports x86_64 only.
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Inspect Minikube command resolution and managed binary
+  ansible.builtin.shell: |
+    command -v minikube || true
+  args:
+    executable: /bin/bash
+  register: laptop_minikube_command
+  changed_when: false
+  check_mode: false
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Inspect the managed Minikube binary path
+  ansible.builtin.stat:
+    path: "{{ laptop_application_packages.minikube.install_path }}"
+  register: laptop_minikube_binary
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Preserve an existing Minikube installation outside the managed path
+  ansible.builtin.assert:
+    that:
+      - >-
+        laptop_minikube_command.stdout | trim == '' or
+        laptop_minikube_command.stdout | trim == laptop_application_packages.minikube.install_path
+    fail_msg: >-
+      Minikube already resolves to {{ laptop_minikube_command.stdout | trim }}.
+      Review that installation before provisioning the managed binary at
+      {{ laptop_application_packages.minikube.install_path }}.
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Read the managed Minikube version
+  ansible.builtin.command:
+    argv: ["{{ laptop_application_packages.minikube.install_path }}", version, --short]
+  register: laptop_minikube_version
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - laptop_manage_minikube | default(false) | bool
+    - laptop_minikube_binary.stat.exists
+
+- name: Preserve a Minikube binary that differs from the declared version
+  ansible.builtin.assert:
+    that:
+      - laptop_minikube_version.rc == 0
+      - laptop_minikube_version.stdout | trim == ('v' ~ laptop_application_packages.minikube.version)
+    fail_msg: >-
+      Existing {{ laptop_application_packages.minikube.install_path }} is not
+      Minikube v{{ laptop_application_packages.minikube.version }}. Review it
+      manually before replacing it.
+  when:
+    - laptop_manage_minikube | default(false) | bool
+    - laptop_minikube_binary.stat.exists
+
+- name: Preview missing Minikube installation
+  ansible.builtin.debug:
+    msg: >-
+      Would install Minikube {{ laptop_application_packages.minikube.version }}
+      from the checksum-verified upstream Linux release.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Create the managed Minikube artifact cache
+  ansible.builtin.file:
+    path: /var/cache/dotfiles
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Download checksum-verified Minikube release binary
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.minikube.binary_url }}"
+    dest: "/var/cache/dotfiles/minikube-{{ laptop_application_packages.minikube.version }}-linux-amd64"
+    checksum: "sha256:{{ laptop_application_packages.minikube.sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Install the verified Minikube binary
+  ansible.builtin.copy:
+    src: "/var/cache/dotfiles/minikube-{{ laptop_application_packages.minikube.version }}-linux-amd64"
+    dest: "{{ laptop_application_packages.minikube.install_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Verify the installed Minikube version
+  ansible.builtin.command:
+    argv: ["{{ laptop_application_packages.minikube.install_path }}", version, --short]
+  register: laptop_minikube_installed_version
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Require the declared Minikube version after installation
+  ansible.builtin.assert:
+    that:
+      - laptop_minikube_installed_version.stdout | trim == ('v' ~ laptop_application_packages.minikube.version)
+    fail_msg: The installed Minikube binary did not report the declared version.
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
 - name: Preview requested Ulauncher installation
   ansible.builtin.debug:
     msg: >-

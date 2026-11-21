@@ -13,6 +13,12 @@
     "channel": "stable",
     "repository": "google-chrome"
   },
+  "minikube": {
+    "version": "1.39.0",
+    "binary_url": "https://github.com/kubernetes/minikube/releases/download/v1.39.0/minikube-linux-amd64",
+    "sha256": "b738496da01be06bbaf80c688f57ce25acd3849fbb518155f3a88e03ef555aa4",
+    "install_path": "/usr/local/bin/minikube"
+  },
   "bruno": {
     "version": "4.3.0",
     "package_name": "bruno",
