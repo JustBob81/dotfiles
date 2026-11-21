@@ -68,6 +68,11 @@ allowed_untracked = {
     'ansible/bootstrap-resolute', 'ansible/resolute.cfg', 'ansible/resolute.yml',
     'ansible/run-resolute', 'ansible/vm-resolute/run',
     'ansible/vm-resolute/provision-guest.sh', 'config/apt-repositories-resolute.json',
+    'ansible/roles/application_tools/tasks/main.yml',
+    'bootstrap-r-tools', 'bootstrap-ruby-tools',
+    'config/application-repositories-resolute.json', 'config/mise/config.toml',
+    'config/r-tools.json', 'docs/r-tools.md', 'docs/ruby-tools.md',
+    'docs/system-applications.md', 'tooling/disable-rvm-shell.sh', 'tooling/r_tools.py',
 }
 unexpected = {item for item in untracked if item and item not in allowed_untracked}
 if unexpected:

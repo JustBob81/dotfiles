@@ -147,6 +147,21 @@ installs them and sets the outside-project default to the reviewed latest LTS.
 The manifest pins Node 26.13.1 until a later LTS update is reviewed. The
 existing `.nvmrc` pins are preserved. See [Node.js tooling](../docs/node-tools.md).
 
+Ruby uses the Mise binary already installed for Emacs/Codex tooling. Its tracked
+global policy selects Ruby 4.0.9, recognizes project `.ruby-version` and
+Gemfile versions, and disables automatic installs. Run
+`./bootstrap-ruby-tools` to audit and `./bootstrap-ruby-tools --apply` to
+install. RVM startup hooks are retired while `~/.rvm` remains as a local
+rollback copy. The interactive shell helper also removes the system profile
+hook's RVM effects. See [Ruby version management](../docs/ruby-tools.md).
+
+R uses Rig for user-local R runtimes where portable R supports the host glibc,
+and the CRAN `renv` package for project libraries. On older glibc, the bootstrap
+uses an exactly matching system R and does not attempt an incompatible portable
+build. The legacy `~/.renv` shim checkout and system R are preserved. Projects
+opt into runtime selection by adding `use_rig` to `.envrc`, and should commit
+reviewed `renv.lock` files. See [R version and package management](../docs/r-tools.md).
+
 The historical Python location is retained as a persistent declared location;
 managed pipx applications move off their older pyenv interpreter. Existing
 unrelated pipx apps are preserved. Pyenv shell initialization is retired. The
@@ -228,6 +243,14 @@ Run from the repository root:
 ./ansible/run --check --install-packages
 ./ansible/run --apply --install-packages
 
+# On Resolute, opt into the reviewed application groups.
+./ansible/run-resolute --check --install-apps
+./ansible/run-resolute --apply --install-apps
+# Use the optional Albert choice instead of default Ulauncher (currently fails closed on Resolute).
+./ansible/run-resolute --check --install-apps --install-albert
+./ansible/run-resolute --check --install-mongodb
+./ansible/run-resolute --check --install-google-cloud
+
 # Preview/apply shared Python, pipx, and Hatch provisioning independently.
 ./ansible/run --check --provision-tools
 ./ansible/run --apply --provision-tools
@@ -264,6 +287,12 @@ Ansible stops after a failed task; do not bypass failures with `ignore_errors`.
 - `laptop.yml`: platform and policy checks followed by repository, package, shared-tool and Emacs roles.
 - `roles/repositories`: disabled-source enforcement.
 - `roles/packages`: package audit and optional installation.
+- Resolute-only `roles/application_tools`: opt-in kubectl and Google Cloud Snaps,
+  Bruno, the pinned Ulauncher Resolute development package, and the reviewed MongoDB 9 source/key. Albert
+  settings and web searches seed only absent config files; GNOME shortcut setup
+  preserves existing custom bindings and is applied only inside the logged-in
+  user's session. The obsolete X11-only window-switcher is excluded. See
+  [system application policy](../docs/system-applications.md).
 - `roles/shared_tools`: shared tool audit and opt-in provisioning using the root bootstrap.
 - `roles/emacs_tools`: complete Emacs checkout, standalone Codex/Mise and ACP provisioning.
   See [Emacs recovery and validation](../docs/emacs-tools.md), including manual sign-in

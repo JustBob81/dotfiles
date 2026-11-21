@@ -79,6 +79,15 @@ allowed_untracked = {
     'ansible/vm-desktop-resolute/refresh-seed',
     'ansible/roles/firefox_extensions/tasks/main.yml',
     'config/firefox-extensions.json',
+    'ansible/roles/application_tools/tasks/main.yml',
+    'config/albert/albert.conf', 'config/albert/websearch-engines.json',
+    'config/application-packages-resolute.json',
+    'bootstrap-r-tools', 'bootstrap-ruby-tools',
+    'config/application-repositories-resolute.json', 'config/mise/config.toml',
+    'config/r-tools.json', 'docs/r-tools.md', 'docs/ruby-tools.md',
+    'docs/system-applications.md', 'docs/software-inventory.md',
+    'tooling/disable-rvm-shell.sh', 'tooling/r_tools.py',
+    'tooling/launcher-gnome-shortcut.py',
 }
 unexpected = {item for item in untracked if item and item not in allowed_untracked}
 if unexpected:

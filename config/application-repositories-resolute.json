@@ -1,0 +1,21 @@
+{
+  "albert": {
+    "availability": "unsupported-on-resolute",
+    "reason": "The OBS xUbuntu_26.04 Release.key endpoint returns HTTP 404. Do not use an older Ubuntu repository."
+  },
+  "ulauncher-dev": {
+    "key_url": "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x59EBDE772980C381CA13FA59FAF1020699503176",
+    "key_path": "/etc/apt/keyrings/ulauncher-archive-keyring.asc",
+    "key_fingerprint": "59EBDE772980C381CA13FA59FAF1020699503176",
+    "source_path": "/etc/apt/sources.list.d/ulauncher.sources",
+    "source_line": "Types: deb\nURIs: https://ppa.launchpadcontent.net/agornostal/ulauncher-dev/ubuntu\nSuites: resolute\nComponents: main\nSigned-By: /etc/apt/keyrings/ulauncher-archive-keyring.asc"
+  },
+  "mongodb": {
+    "version_series": "9.0",
+    "key_url": "https://pgp.mongodb.com/server-9.asc",
+    "key_path": "/etc/apt/keyrings/mongodb-server-9.asc",
+    "key_fingerprint": "B3B42B6C39E5CDDEC0A27E3CF366D55B602E502D",
+    "source_path": "/etc/apt/sources.list.d/mongodb-org-9.0.list",
+    "source_line": "deb [arch=amd64 signed-by=/etc/apt/keyrings/mongodb-server-9.asc] https://repo.mongodb.org/apt/ubuntu resolute/mongodb-org/9.0 multiverse"
+  }
+}

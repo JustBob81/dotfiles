@@ -16,8 +16,24 @@
         - gnupg
         - libatomic1
         - zsh
+      containers:
+        - docker.io
+        - docker-compose-v2
+      databases:
+        - postgresql
+      haskell:
+        - ghc
+        - cabal-install
+        - haskell-stack
+      mongodb:
+        - mongodb-org
     laptop_enabled_package_groups: [base]
     laptop_manage_packages: false
+    laptop_application_repositories: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/application-repositories-resolute.json') | from_json }}"
+    laptop_application_packages: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/application-packages-resolute.json') | from_json }}"
+    laptop_manage_bruno: false
+    laptop_manage_ulauncher: false
+    laptop_manage_albert: false
     laptop_manage_emacs: false
   pre_tasks:
     - name: Require the maintained Resolute Ansible runtime
@@ -53,6 +69,8 @@
   roles:
     - role: repositories
       tags: [repositories]
+    - role: application_tools
+      tags: [application_tools]
     - role: packages
       tags: [packages]
     - role: emacs_tools

@@ -1,0 +1,17 @@
+{
+  "albert": {
+    "package_name": "albert",
+    "availability": "unsupported-on-resolute"
+  },
+  "ulauncher": {
+    "package_name": "ulauncher",
+    "version": "6.0.0~beta35-0ubuntu1ppa1~resolute",
+    "repository": "ulauncher-dev"
+  },
+  "bruno": {
+    "version": "4.3.0",
+    "package_name": "bruno",
+    "deb_url": "https://github.com/usebruno/bruno/releases/download/v4.3.0/bruno_4.3.0_amd64_linux.deb",
+    "sha256": "45117e3cc3c221801d10c8984c8e796f11bdf16d28e3a51b35e976603d3c3a02"
+  }
+}

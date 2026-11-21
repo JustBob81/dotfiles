@@ -23,14 +23,15 @@ roles enforce Focal and encode historical source filenames. Keep that policy
 isolated. A 26.04 run must require `resolute` and must never derive a release by
 rewriting a Focal/Bionic source URL. Enabled vendor sources and keys remain
 unmanaged until each vendor's 26.04 support, signing instructions, and source
-format are reviewed. In particular, the existing MongoDB 5.0, Yarn, RVM, Google
-Cloud, Brave, browser and compiler sources cannot be copied forward by assumption.
+format are reviewed. The old MongoDB 5.0, Yarn, RVM, Google Cloud, Brave, browser
+and compiler sources are not copied forward. MongoDB 9.0 is separately declared
+as an opt-in Resolute source; see [system application policy](system-applications.md).
 
 An initial separate profile entry point and repository policy now exist:
 `ansible/resolute.yml`, `ansible/run-resolute`, and
 `config/apt-repositories-resolute.json`. It manages only Ubuntu's own sources and
-a small package baseline; package installation is opt-in. Vendor repositories
-remain unconfigured, and Canonical partner entries are left untouched. The normal
+a small package baseline; package installation is opt-in. The MongoDB source is
+declared separately and remains opt-in; Canonical partner entries are left untouched. The normal
 Focal entry point remains the default. This profile passed a clean Ubuntu 26.04.1
 Server cloud-image replay on November 17, 2026. Laptop hardware and the Desktop
 installer have not been validated.
