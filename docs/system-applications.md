@@ -9,6 +9,7 @@ repositories. Package installation remains opt-in.
 | Group | Provisioning | Notes |
 | --- | --- | --- |
 | Containers | Ubuntu `docker.io` and `docker-compose-v2` | Uses Ubuntu packages, avoiding a Docker vendor source. Docker starts its daemon; Docker data and access policy remain separate. |
+| Keep-awake utility | Ubuntu `caffeine` package (2.9.14-1 in Resolute) | Included by `--install-apps`. Its fullscreen detection depends on X11-related libraries; verify its indicator and behavior in the GNOME Wayland VM. If that is limited, the Caffeine GNOME Shell extension has an active build for GNOME 50. |
 | Kubernetes client | `kubectl` from the official Kubernetes Snap | Snap follows its stable channel and updates automatically. Match its minor version to each cluster's supported version skew. `~/.kube` configuration and credentials are not managed. |
 | PostgreSQL | Ubuntu `postgresql` metapackage | Resolute selects its current supported major version. Package installation can create and start a local cluster. Database contents and migration are separate recovery work. |
 | MongoDB | MongoDB Community 9.0 APT repository and `mongodb-org` | MongoDB documents Resolute support for 9.0.4 and newer. The repository is added only when requested and its signing key fingerprint is checked. Installing the server can start `mongod`; existing data is not migrated. |

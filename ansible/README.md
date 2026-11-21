@@ -243,7 +243,7 @@ Run from the repository root:
 ./ansible/run --check --install-packages
 ./ansible/run --apply --install-packages
 
-# On Resolute, opt into the reviewed application groups.
+# On Resolute, opt into the reviewed application groups, including Caffeine.
 ./ansible/run-resolute --check --install-apps
 ./ansible/run-resolute --apply --install-apps
 # Use the optional Albert choice instead of default Ulauncher (currently fails closed on Resolute).
@@ -289,7 +289,8 @@ Ansible stops after a failed task; do not bypass failures with `ignore_errors`.
 - `roles/packages`: package audit and optional installation.
 - Resolute-only `roles/application_tools`: opt-in kubectl and Google Cloud Snaps,
   Bruno, the pinned Ulauncher Resolute development package, and the reviewed MongoDB 9 source/key. Albert
-  settings and web searches seed only absent config files; GNOME shortcut setup
+  settings and web searches seed only absent config files; Caffeine comes from
+  Ubuntu's archive. GNOME shortcut setup
   preserves existing custom bindings and is applied only inside the logged-in
   user's session. The obsolete X11-only window-switcher is excluded. See
   [system application policy](../docs/system-applications.md).

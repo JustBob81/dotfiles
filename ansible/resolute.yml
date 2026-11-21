@@ -25,6 +25,8 @@
         - ghc
         - cabal-install
         - haskell-stack
+      desktop:
+        - caffeine
       mongodb:
         - mongodb-org
     laptop_enabled_package_groups: [base]
