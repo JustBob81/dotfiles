@@ -22,7 +22,8 @@ def run(args, env=None):
     result = subprocess.run([str(a) for a in args], env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode:
-        raise RuntimeError('{} failed:\n{}'.format(Path(str(args[0])).name, result.stderr[-4000:]))
+        details = '\n'.join(part[-4000:] for part in (result.stderr, result.stdout) if part)
+        raise RuntimeError('{} failed:\n{}'.format(Path(str(args[0])).name, details))
     return result.stdout.strip()
 
 
@@ -62,10 +63,26 @@ def load_policy(path):
         raise ValueError('A Python archive SHA-256 is required')
     if not policy['python']['url'].startswith('https://github.com/astral-sh/python-build-standalone/releases/download/'):
         raise ValueError('Python archive must use the reviewed release source')
-    if set(policy['applications']) != {'hatch'}:
-        raise ValueError('This milestone manages Hatch only')
-    if not re.fullmatch(r'\d+\.\d+\.\d+', policy['applications']['hatch']['version']):
-        raise ValueError('An explicit Hatch release is required')
+    expected_applications = {
+        'hatch': ['hatch'],
+        'pdm': ['pdm'],
+        'poetry': ['poetry'],
+        'pip-tools': ['pip-compile', 'pip-sync'],
+        'pipenv': ['pipenv'],
+        'python-lsp-server': ['pylsp'],
+        'yamllint': ['yamllint'],
+    }
+    if set(policy['applications']) != set(expected_applications):
+        raise ValueError('Declare the complete shared pipx application set')
+    for name, application in policy['applications'].items():
+        if not re.fullmatch(r'\d+\.\d+\.\d+', application['version']):
+            raise ValueError('An explicit {} release is required'.format(name))
+        if application.get('commands') != expected_applications[name]:
+            raise ValueError('Declare the reviewed executable names for {}'.format(name))
+    distributions = policy.get('hatch_python_distributions')
+    if (not isinstance(distributions, list) or len(distributions) != len(set(distributions)) or
+            any(not re.fullmatch(r'\d+\.\d+', version) for version in distributions)):
+        raise ValueError('Declare unique Hatch Python major.minor distributions')
     if policy['system_packages'] != ['direnv']:
         raise ValueError('Review changes to the system prerequisite policy')
     return policy
@@ -127,7 +144,8 @@ class SharedTools:
         self.pipx_home = self.home / policy['pipx']['home_relative_path']
         self.bin = self.home / policy['pipx']['bin_relative_path']
         self.backups = self.data / 'laptop-tools/backups'
-        self.hatch_environment = self.pipx_home / 'venvs/hatch'
+        self.application_environments = {
+            name: self.pipx_home / 'venvs' / name for name in policy['applications']}
 
     def pipx_env(self):
         return {**os.environ, 'PIPX_HOME': str(self.pipx_home), 'PIPX_BIN_DIR': str(self.bin),
@@ -154,13 +172,27 @@ class SharedTools:
         wrapper = self.bin / 'pipx'
         if wrapper.is_symlink() or not wrapper.is_file() or wrapper.read_text() != self.wrapper():
             changes.append('publish shared pipx command (back up existing entry)')
-        actual_hatch = probe(self.hatch_environment / 'bin/python', 'hatch')
-        hatch_runtime = probe(self.hatch_environment / 'bin/python')
-        if (actual_hatch != self.policy['applications']['hatch']['version'] or not hatch_runtime or
-                Path(hatch_runtime['prefix']).resolve() != self.runtime.resolve()):
-            changes.append('install Hatch through pipx using declared Python')
-        if (self.bin / 'hatch').resolve() != (self.hatch_environment / 'bin/hatch').resolve():
-            changes.append('publish shared Hatch command')
+        for name, application in self.policy['applications'].items():
+            environment = self.application_environments[name]
+            actual = probe(environment / 'bin/python', name)
+            runtime = probe(environment / 'bin/python')
+            label = {'pdm': 'PDM', 'pip-tools': 'pip-tools',
+                     'python-lsp-server': 'python-lsp-server'}.get(name, name.capitalize())
+            if (actual != application['version'] or not runtime or
+                    Path(runtime['prefix']).resolve() != self.runtime.resolve()):
+                changes.append('install {} through pipx using declared Python'.format(label))
+            for command in application['commands']:
+                if (self.bin / command).resolve() != (environment / 'bin' / command).resolve():
+                    changes.append('publish shared {} command'.format(command))
+        hatch = self.bin / 'hatch'
+        for version in self.policy['hatch_python_distributions']:
+            if not hatch.is_file():
+                changes.append('install Hatch-managed Python {}'.format(version))
+                continue
+            result = subprocess.run([str(hatch), 'python', 'find', version], text=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            if result.returncode or not Path(result.stdout.strip()).is_file():
+                changes.append('install Hatch-managed Python {}'.format(version))
         missing = []
         for name in self.policy['system_packages']:
             result = subprocess.run(['dpkg-query', '-W', '-f=${Status}', name],
@@ -235,21 +267,40 @@ class SharedTools:
             staged_wrapper.chmod(0o755)
             os.replace(str(staged_wrapper), str(wrapper))
         # Unrelated pipx applications are never reinstalled or removed.
-        if 'install Hatch through pipx using declared Python' in self.audit()['changes']:
-            self.backup(self.hatch_environment)
-            run([self.pipx_python, '-m', 'pipx', 'install', '--force', '--python', self.python,
-                 'hatch==' + self.policy['applications']['hatch']['version']], env=self.pipx_env())
-        desired = self.hatch_environment / 'bin/hatch'
-        entry = self.bin / 'hatch'
-        if entry.resolve() != desired.resolve():
-            if not desired.is_file():
-                raise ValueError('Hatch command is missing after installation')
-            self.backup(entry)
-            staged_link = self.bin / '.hatch-managed-link'
-            if staged_link.exists() or staged_link.is_symlink():
-                raise ValueError('Temporary Hatch link exists; inspect it before retrying')
-            staged_link.symlink_to(desired)
-            os.replace(str(staged_link), str(entry))
+        for name, application in self.policy['applications'].items():
+            environment = self.application_environments[name]
+            label = {'pdm': 'PDM', 'pip-tools': 'pip-tools',
+                     'python-lsp-server': 'python-lsp-server'}.get(name, name.capitalize())
+            install_change = 'install {} through pipx using declared Python'.format(label)
+            if install_change in self.audit()['changes']:
+                # pipx --force upgrades a package in its current venv; it does
+                # not switch the interpreter. Preserve the venv, remove it via
+                # pipx, then create a new one with the declared Python.
+                self.backup(environment)
+                for command in application['commands']:
+                    self.backup(self.bin / command)
+                if environment.exists() or environment.is_symlink():
+                    run([self.pipx_python, '-m', 'pipx', 'uninstall', '--skip-maintenance', name],
+                        env=self.pipx_env())
+                run([self.pipx_python, '-m', 'pipx', 'install', '--python', self.python,
+                     '{}=={}'.format(name, application['version'])], env=self.pipx_env())
+            for command in application['commands']:
+                desired = environment / 'bin' / command
+                entry = self.bin / command
+                if entry.resolve() != desired.resolve():
+                    if not desired.is_file():
+                        raise ValueError('{} command is missing after installation'.format(command))
+                    self.backup(entry)
+                    staged_link = self.bin / '.{}-managed-link'.format(command)
+                    if staged_link.exists() or staged_link.is_symlink():
+                        raise ValueError('Temporary {} link exists; inspect it before retrying'.format(command))
+                    staged_link.symlink_to(desired)
+                    os.replace(str(staged_link), str(entry))
+        missing_python_distributions = [
+            version for version in self.policy['hatch_python_distributions']
+            if 'install Hatch-managed Python {}'.format(version) in self.audit()['changes']]
+        if missing_python_distributions:
+            run([self.bin / 'hatch', 'python', 'install', *missing_python_distributions, '--private'])
         after = self.audit()
         if after['changes']:
             raise ValueError('Tooling did not converge: ' + ', '.join(after['changes']))

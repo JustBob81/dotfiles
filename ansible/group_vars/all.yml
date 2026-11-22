@@ -18,6 +18,7 @@ laptop_package_groups:
     - curl
     - git
     - gnupg
+    - libatomic1
     - zsh
   backup_prerequisites:
     - build-essential
@@ -37,3 +38,9 @@ laptop_manage_shared_tools: false
 
 # Full personal emacs.d provisioning is separate from Python shared tools.
 laptop_manage_emacs: false
+
+# Install LastPass into Firefox using a removable managed extension policy.
+# Sign-in and MFA are always manual.
+laptop_manage_lastpass_extension: false
+laptop_firefox_policy_file: /etc/firefox/policies/policies.json
+laptop_firefox_extension_declarations: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/firefox-extensions.json') | from_json }}"

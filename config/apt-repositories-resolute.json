@@ -1,0 +1,14 @@
+{
+  "ubuntu_codename": "resolute",
+  "repositories": {},
+  "external_sources": {
+    "ubuntu": {
+      "state": "managed-by-ubuntu",
+      "reason": "Ubuntu owns the distribution source definitions for this profile."
+    },
+    "third-party": {
+      "state": "not-configured",
+      "reason": "No vendor repository has been reviewed for Ubuntu 26.04 yet."
+    }
+  }
+}

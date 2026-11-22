@@ -34,7 +34,7 @@ Commandline: /usr/bin/unattended-upgrade
 Commandline: apt upgrade
 Commandline: apt upgrade
 Commandline: apt install python3.8
-Commandline: apt install /home/bobo51881/Downloads/zoom_amd64.deb
+Commandline: apt install $HOME/Downloads/zoom_amd64.deb
 Commandline: apt install clipgrab
 Commandline: apt install ubuntu-restricted-extras
 Commandline: packagekit role='install-packages'

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Eject the installer DVD after installation if Ubuntu prompts for its removal.
+set -euo pipefail
+if [[ $# != 1 ]]; then
+    printf 'Usage: %s EVIDENCE_DIRECTORY\n' "$0" >&2
+    exit 2
+fi
+base=$(cd -- "$1" && pwd)
+pidfile="$base/qemu.pid"
+monitor="$base/monitor.sock"
+[[ -f "$pidfile" && -S "$monitor" ]] || { printf 'No running VM found for %s\n' "$base" >&2; exit 1; }
+kill -0 "$(cat "$pidfile")" 2>/dev/null || { printf '%s\n' 'QEMU process is not running.' >&2; exit 1; }
+python3 - "$monitor" <<'PY'
+import socket, sys
+with socket.socket(socket.AF_UNIX) as sock:
+    sock.settimeout(5)
+    sock.connect(sys.argv[1])
+    sock.recv(4096)
+    sock.sendall(b'eject installer\n')
+    print(sock.recv(4096).decode(errors='replace').strip())
+PY

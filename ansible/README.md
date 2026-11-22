@@ -3,6 +3,91 @@
 This is the first Ansible layer for the repaired Ubuntu 20.04 laptop. It is not
 an end-to-end fresh-machine recovery solution yet. Dotbot still manages user links.
 
+## Ubuntu 26.04 profile
+
+The separate Resolute profile is experimental and does not change the default
+Focal setup. It starts with Ubuntu-managed repositories only and a small base
+package group. No vendor repositories are configured, no partner source is
+edited, and package installation remains opt-in.
+
+Create its isolated maintained controller and explicitly run that playbook:
+
+```sh
+./ansible/bootstrap-resolute
+./ansible/run-resolute --syntax-check
+./ansible/run-resolute --check
+./ansible/run-resolute --apply --install-packages
+```
+
+Emacs/Codex provisioning is separate and opt-in. After private Git access is
+configured in the guest, use `./ansible/run-resolute --check --provision-emacs`
+then `--apply --provision-emacs` twice; the second apply should report
+`changed=0`. Codex sign-in and ACP validation are manual steps; both passed in
+the Resolute guest. See
+[`../docs/emacs-tools.md`](../docs/emacs-tools.md) for the read-only deploy-key
+setup.
+
+Firefox LastPass installation is also opt-in:
+
+```sh
+./ansible/run-resolute --check --provision-lastpass
+./ansible/run-resolute --apply --provision-lastpass
+```
+
+This merges an auto-install policy into `/etc/firefox/policies/policies.json`
+without replacing other policies. The extension remains removable. Restart
+Firefox, confirm it under `about:policies`, then sign in and complete MFA by hand.
+LastPass extension versions follow Mozilla Add-ons updates; credentials are not
+managed by Ansible. The same flag is available through the Focal `ansible/run`.
+
+The Resolute environment is `.hatch-resolute`, with Ansible Core 2.21 and
+Python 3.12 on the controller. It requires Ubuntu Resolute and a managed-host
+Python between 3.9 and 3.14. The regular `.hatch`, `ansible/run`, and Focal
+policy are unchanged. A clean Ubuntu 26.04.1 Server cloud-image replay passed on
+November 17, 2026: syntax check, check mode, first package application, and repeat
+application (`changed=0`). The interactive 26.04.1 Desktop installation and
+post-install profile setup also completed; the repeat application passed its
+`changed=0` assertion, and the VM restarted, accepted a login, and shut down.
+Emacs/Codex provisioning, startup/shutdown, ERT, authenticated ACP, and interactive
+Agent Shell also passed in the guest. The newer agent-shell package warning
+remains; its old patch was not applied. These runs do not validate XPS hardware
+or constitute OS-upgrade tests. The opt-in LastPass Firefox policy was applied;
+`about:policies` recognized its extension entry, and the user confirmed the
+enabled extension worked. See
+[`../docs/ubuntu-26.04-profile.md`](../docs/ubuntu-26.04-profile.md) for the
+acceptance gates and third-party review boundary.
+
+The one-use clean cloud-image replay is `./ansible/vm-resolute/run`. It verifies
+Canonical's signed Resolute cloud-image checksums, creates a new UEFI guest disk,
+captures the current non-ignored dotfiles worktree, bootstraps the controller,
+and checks repeat package convergence. It needs KVM access, OVMF, 10 GiB free
+space, and host/guest network access to Ubuntu archives, GitHub, and PyPI. The
+successful run's evidence is at
+`~/.emacs.d/var/vm-resolute-20261117-045406`; other runs are stored under
+`~/.emacs.d/var/vm-resolute-*` (override the parent with
+`DOTFILES_VM_EVIDENCE_ROOT`). This is a Server cloud image test; it does not
+validate the Desktop installer or laptop hardware.
+
+For the interactive Desktop installation path, run
+`./ansible/vm-desktop-resolute/run`. It verifies Canonical's signed 26.04.1 ISO,
+opens a QEMU window with a blank 40 GiB disk, and attaches the current dotfiles
+snapshot as a read-only `DOTFILES` disc. In the installer, choose the VM disk for
+installation and create a local test account. After first login, open the
+`DOTFILES` volume and run `bash ./provision-from-seed.sh` from its directory; it
+bootstraps the Resolute controller and applies the package baseline twice.
+If the installer asks to remove its medium, run
+`./ansible/vm-desktop-resolute/eject-installer EVIDENCE_DIRECTORY` from the host.
+The host-side `stop EVIDENCE_DIRECTORY` and `start-installed EVIDENCE_DIRECTORY`
+scripts request guest shutdown and restart the installed VM. The runner needs
+KVM, OVMF, a graphical session, at least 20 GiB free, and a network connection.
+It defaults to 4 GiB guest RAM; set `VM_MEMORY_MIB=6144` only if the host has
+enough memory. It does not install anything to the host disk. The completed run's
+evidence is at `~/.emacs.d/var/vm-desktop-resolute-20261117-051623`.
+To update the read-only `DOTFILES` disc on that installed VM without reinstalling
+Ubuntu, shut it down and run
+`./ansible/vm-desktop-resolute/refresh-seed EVIDENCE_DIRECTORY`; it preserves
+the original seed as `dotfiles-seed-initial.iso`.
+
 ## What this milestone manages
 
 - Reads the same `../config/apt-repositories.json` used by the repository helper.
@@ -43,17 +128,47 @@ it with pipx, which owns its isolated application environment and exposes `hatch
 in `$HOME/.local/bin`. Hatch then owns each project's `.hatch` environment;
 direnv selects it on directory entry. Do not install Hatch into the project venv.
 
-Shared tool provisioning is now declared in `../config/shared-python-tools.json`.
+Shared tool provisioning is declared in `../config/shared-python-tools.json`.
 From a normal terminal, `./bootstrap-tools` audits it and
 `./bootstrap-tools --apply` provisions the independent Python, isolated pipx,
-and shared Hatch command before the project environment exists. No uv installation
-is required. The Ansible shared-tools role consumes this same implementation.
+shared Hatch/PDM/Poetry/pip-tools/Pipenv/python-lsp-server/yamllint commands, and
+the private Python 3.9/3.10 runtimes required by Pipfile projects before their
+project environments exist. `layout_pipenv` selects the Hatch runtime declared by
+each Pipfile and activates an existing environment without installing project
+dependencies on directory entry. A missing environment must be created and
+synced explicitly; the guide documents the Python 3.9 Pipenv compatibility
+workaround. No uv installation is required. The Ansible shared-tools role
+consumes this same implementation.
 See [the full bootstrap and migration guide](../docs/shared-python-tools.md).
 
+Node.js uses fnm in a separate user-local layer. `./bootstrap-node-tools` audits
+fnm and the reviewed project Node versions; `./bootstrap-node-tools --apply`
+installs them and sets the outside-project default to the reviewed latest LTS.
+The manifest pins Node 26.13.1 until a later LTS update is reviewed. The
+existing `.nvmrc` pins are preserved. See [Node.js tooling](../docs/node-tools.md).
+
+Ruby uses the Mise binary already installed for Emacs/Codex tooling. Its tracked
+global policy selects Ruby 4.0.9, recognizes project `.ruby-version` and
+Gemfile versions, and disables automatic installs. Run
+`./bootstrap-ruby-tools` to audit and `./bootstrap-ruby-tools --apply` to
+install. RVM startup hooks are retired while `~/.rvm` remains as a local
+rollback copy. The interactive shell helper also removes the system profile
+hook's RVM effects. See [Ruby version management](../docs/ruby-tools.md).
+
+R uses Rig for user-local R runtimes where portable R supports the host glibc,
+and the CRAN `renv` package for project libraries. On older glibc, the bootstrap
+uses an exactly matching system R and does not attempt an incompatible portable
+build. The legacy `~/.renv` shim checkout and system R are preserved. Projects
+opt into runtime selection by adding `use_rig` to `.envrc`, and should commit
+reviewed `renv.lock` files. See [R version and package management](../docs/r-tools.md).
+
 The historical Python location is retained as a persistent declared location;
-pipx moves off its older pyenv interpreter. Existing unrelated pipx apps are
-preserved. Directory paths, launcher backups, version pins, system prerequisites,
-and fresh-shell direnv setup are documented in that guide.
+managed pipx applications move off their older pyenv interpreter. Existing
+unrelated pipx apps are preserved. Pyenv shell initialization is retired. The
+reviewed Pipenv project environments now use Hatch-managed Python 3.9 and 3.10;
+the old pyenv checkout and runtimes remain as local recovery copies. Directory
+paths, launcher backups, version pins, system prerequisites, and fresh-shell
+direnv setup are documented in that guide.
 
 From the repository root, leave the previously activated environment if needed,
 then create/synchronize the Hatch environment:
@@ -68,8 +183,8 @@ direnv allow
 ```
 
 The repository's `.envrc` uses the shared `layout hatch` helper in
-`config/direnv/direnvrc`. Once allowed, direnv selects `.hatch/bin` ahead of pyenv
-shims and exports `VIRTUAL_ENV`, `HATCH_ENV`, `HATCH_ENV_TYPE_VIRTUAL_PATH`,
+`config/direnv/direnvrc`. Once allowed, direnv selects `.hatch/bin` ahead of the
+inherited PATH and exports `VIRTUAL_ENV`, `HATCH_ENV`, `HATCH_ENV_TYPE_VIRTUAL_PATH`,
 `PYTHONNOUSERSITE`, `PIP_REQUIRE_VIRTUALENV`, `ANSIBLE_CONFIG`, and
 `ANSIBLE_INVENTORY`. It unsets `PYTHONHOME`. Changes are unloaded when leaving
 the project. Your Antigen configuration already includes the direnv shell hook.
@@ -128,6 +243,15 @@ Run from the repository root:
 ./ansible/run --check --install-packages
 ./ansible/run --apply --install-packages
 
+# On Resolute, opt into the reviewed application groups, including browsers,
+# Minikube, GIMP, Spotify, LastPass extension policy, and Caffeine. Account sign-in is manual.
+./ansible/run-resolute --check --install-apps
+./ansible/run-resolute --apply --install-apps
+# Use the optional Albert choice instead of default Ulauncher (currently fails closed on Resolute).
+./ansible/run-resolute --check --install-apps --install-albert
+./ansible/run-resolute --check --install-mongodb
+./ansible/run-resolute --check --install-google-cloud
+
 # Preview/apply shared Python, pipx, and Hatch provisioning independently.
 ./ansible/run --check --provision-tools
 ./ansible/run --apply --provision-tools
@@ -135,6 +259,10 @@ Run from the repository root:
 # Audit is automatic; explicitly enable Emacs/Codex provisioning.
 ./ansible/run --check --provision-emacs
 ./ansible/run --apply --provision-emacs
+
+# Install the removable LastPass Firefox extension policy; sign-in is manual.
+./ansible/run --check --provision-lastpass
+./ansible/run --apply --provision-lastpass
 ```
 
 Check mode does not change system configuration, but Ansible may create temporary
@@ -160,6 +288,16 @@ Ansible stops after a failed task; do not bypass failures with `ignore_errors`.
 - `laptop.yml`: platform and policy checks followed by repository, package, shared-tool and Emacs roles.
 - `roles/repositories`: disabled-source enforcement.
 - `roles/packages`: package audit and optional installation.
+- Resolute-only `roles/application_tools`: Firefox stable Snap and LastPass
+  extension policy, Google Chrome from Google's signed stable APT source,
+  GIMP and Spotify stable Snaps, pinned Minikube release binary, opt-in kubectl
+  and Google Cloud Snaps, Bruno, the pinned Ulauncher Resolute development
+  package, and the reviewed MongoDB 9 source/key. Albert
+  settings and web searches seed only absent config files; Caffeine comes from
+  Ubuntu's archive. GNOME shortcut setup
+  preserves existing custom bindings and is applied only inside the logged-in
+  user's session. The obsolete X11-only window-switcher is excluded. See
+  [system application policy](../docs/system-applications.md).
 - `roles/shared_tools`: shared tool audit and opt-in provisioning using the root bootstrap.
 - `roles/emacs_tools`: complete Emacs checkout, standalone Codex/Mise and ACP provisioning.
   See [Emacs recovery and validation](../docs/emacs-tools.md), including manual sign-in

@@ -27,54 +27,10 @@ else
         | sh /dev/stdin
 fi
 
-if command -v pipx &> /dev/null; then
-   echo 'pipx - already installed.'
-else
-    python3 -m pip install --user pipx
-    python3 -m pipx ensurepath
-fi
-
-if command -v yamllint &> /dev/null; then
-    echo 'yamllint - already installed.'
-else
-    pipx install yamllint
-fi
-
-if command -v pylsp &> /dev/null; then
-    echo 'python-lsp-server - already installed.'
-else
-    pipx install python-lsp-server
-fi
-
-if command -v pipenv &> /dev/null; then
-    echo 'pipenv - already installed.'
-else
-    pipx install pipenv
-fi
-
-if command -v pip-compile &> /dev/null; then
-    echo 'pip-tools - already installed.'
-else
-    pipx install pip-tools
-fi
-
 if [ -d ~/.antigen ]; then
     echo 'antigen - already installed.'
 else
     curl -L git.io/antigen.zsh
-fi
-
-if [ -d ~/.renv ]; then
-    echo 'renv-installer - already installed.'
-else
-    git clone https://github.com/jcrodriguez1989/renv-installer.git ~/.renv
-fi
-
-
-if [ -d ~/.pyenv ]; then
-    echo 'pyenv - already installed'
-else
-    git clone https://github.com/pyenv/pyenv.git ~/.pyenv
 fi
 
 if [ -d ~/.tmux ]; then
@@ -83,13 +39,6 @@ else
     git clone https://github.com/gpakosz/.tmux.git ~/.tmux
     ln -s -f ~/.tmux/.tmux.conf ~/.tmux.conf
     cp ~/.tmux/.tmux.conf.local ~/.tmux.conf.local
-fi
-
-if [ -d ~/.nvm ]; then
-    echo 'nvm already installed'
-else
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh \
-        | bash
 fi
 
 if [ -d ~/.krew ]; then

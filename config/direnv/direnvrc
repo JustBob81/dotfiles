@@ -1,13 +1,97 @@
-use_nvm() {
+use_fnm() {
   watch_file .nvmrc
-  local NVM_PATH="$HOME/.nvm/nvm.sh"
-  if ! [ -f "$NVM_PATH" ]; then
-    echo "Installing NVM" >&2
-    curl -o- https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash
+  local fnm_path="$HOME/.local/bin/fnm"
+  if ! [ -x "$fnm_path" ]; then
+    log_error 'fnm is missing. Run ./bootstrap-node-tools --apply, then reload direnv.'
+    return 1
   fi
-  . "${NVM_PATH}"
-  nvm install
+  export FNM_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/fnm"
+  eval "$("$fnm_path" env --shell bash)"
+  "$fnm_path" use || return 1
   layout node
+}
+
+# Keep the old helper name working while projects migrate to fnm.
+use_nvm() { use_fnm "$@"; }
+
+# Select an already-installed Rig R version from a project marker or renv.lock.
+# This never installs runtimes or packages during directory entry.
+use_rig() {
+  local version=""
+  if [[ -f .R-version ]]; then
+    watch_file .R-version
+    version=$(tr -d '[:space:]' < .R-version)
+  elif [[ -f renv.lock ]]; then
+    watch_file renv.lock
+    version=$(/usr/bin/python3 -c 'import json; print(json.load(open("renv.lock"))["R"]["Version"])' 2>/dev/null) || {
+      log_error 'Could not read the R version from renv.lock.'
+      return 1
+    }
+  else
+    return 0
+  fi
+
+  if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    log_error "Invalid exact R version '$version' in the project marker."
+    return 1
+  fi
+  local r_bin="${XDG_DATA_HOME:-$HOME/.local/share}/rig/r/$version/bin"
+  if [[ -x "$r_bin/R" && -x "$r_bin/Rscript" ]]; then
+    export RIG_MODE=user
+    PATH_add "$r_bin"
+    return 0
+  fi
+  if [[ -x /usr/bin/R && -x /usr/bin/Rscript ]] &&
+     /usr/bin/R --version 2>/dev/null | head -n 1 | grep -Fq "R version $version "; then
+    PATH_add /usr/bin
+    return 0
+  fi
+  log_error "R $version is missing. On glibc 2.34+ install it with Rig user mode; on older glibc use a matching system R."
+  return 1
+}
+
+# Select the interpreter declared by Pipfile from Hatch-managed Python builds.
+# Runtime installation is explicit through bootstrap-tools, never triggered by cd.
+layout_pipenv() {
+  local pipfile="${PIPENV_PIPFILE:-Pipfile}"
+  if [[ ! -f "$pipfile" ]]; then
+    log_error "No Pipfile found at $pipfile."
+    return 1
+  fi
+  watch_file "$pipfile"
+
+  if [[ -z "${PIPENV_PYTHON:-}" ]]; then
+    local python_version
+    python_version=$(awk -F= '
+      /^\[requires\][[:space:]]*$/ { in_requires=1; next }
+      /^\[/ { in_requires=0 }
+      in_requires && /^[[:space:]]*python_version[[:space:]]*=/ {
+        value=$2
+        gsub(/[[:space:]"]/, "", value)
+        print value
+        exit
+      }
+    ' "$pipfile")
+    if [[ -n "$python_version" ]]; then
+      local hatch_python
+      if ! hatch_python=$(hatch python find "$python_version" 2>/dev/null); then
+        log_error "Hatch Python $python_version is missing. Run ./bootstrap-tools --apply, then reload direnv."
+        return 1
+      fi
+      export PIPENV_PYTHON="$hatch_python"
+    fi
+  fi
+
+  export PIPENV_VENV_IN_PROJECT=1
+  local venv
+  venv=$(pipenv --venv 2>/dev/null || true)
+  if [[ -z "$venv" || ! -d "$venv" ]]; then
+    log_error 'No Pipenv environment exists. Create and sync it explicitly after reviewing the Pipfile.lock.'
+    return 1
+  fi
+  PATH_add "$venv/bin"
+  export PIPENV_ACTIVE=1
+  export VIRTUAL_ENV="$venv"
 }
 
 layout_poetry() {

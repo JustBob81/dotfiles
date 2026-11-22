@@ -1,0 +1,35 @@
+{
+  "platform": "linux-x86_64",
+  "fnm": {
+    "version": "1.39.0",
+    "url": "https://github.com/Schniz/fnm/releases/download/v1.39.0/fnm-linux.zip",
+    "sha256": "7807664f39d39fc518da1c35ba0181e4b3267603c4b1dedeb4b5fc6ae440a224",
+    "data_relative_path": "laptop-tools/fnm-1.39.0",
+    "bin_relative_path": ".local/bin/fnm"
+  },
+  "node": {
+    "data_relative_path": "fnm",
+    "project_versions": ["14.18.3", "16.13.2"],
+    "default": "26.13.1"
+  },
+  "pnpm": {
+    "version": "12.20.0",
+    "install_script": "https://get.pnpm.io/install.sh",
+    "checksums_url": "https://get.pnpm.io/SHASUMS256.txt",
+    "signature_url": "https://get.pnpm.io/SHASUMS256.txt.sig",
+    "key_url": "https://keys.openpgp.org/vks/v1/by-fingerprint/4D20AD76D7BE567214F3F8EE4EABAE7510A044FA",
+    "key_fingerprint": "4D20AD76D7BE567214F3F8EE4EABAE7510A044FA",
+    "data_relative_path": "laptop-tools/pnpm-home"
+  },
+  "global_package_groups": [
+    [{"name": "@eslint/create-config", "version": "0.1.2", "commands": ["create-config"]}],
+    [{"name": "bash-language-server", "version": "3.1.0", "commands": ["bash-language-server"]}],
+    [{"name": "create-react-app", "version": "5.0.0", "commands": ["create-react-app"]}],
+    [{"name": "dockerfile-language-server-nodejs", "version": "0.9.0", "commands": ["docker-langserver"]}],
+    [{"name": "eslint", "version": "8.12.0", "commands": ["eslint"]}],
+    [{"name": "typescript-language-server", "version": "0.9.7", "commands": ["typescript-language-server"]}, {"name": "typescript", "version": "4.6.3", "commands": ["tsc", "tsserver"]}],
+    [{"name": "vscode-langservers-extracted", "version": "4.4.0", "commands": ["vscode-css-language-server", "vscode-eslint-language-server", "vscode-html-language-server", "vscode-json-language-server", "vscode-markdown-language-server"], "allow_builds": ["core-js"]}],
+    [{"name": "yaml-language-server", "version": "1.10.0", "commands": ["yaml-language-server"]}],
+    [{"name": "yarn", "version": "1.22.22", "spec": "yarn@npm:yarn@1.22.22", "commands": ["yarn", "yarnpkg"], "allow_builds": ["yarn"]}]
+  ]
+}

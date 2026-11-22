@@ -28,6 +28,3 @@
     ~/.config/gh/config.yml:
       path: config/gh/config.yml
       create: true
-    ~/.nvm/default-packages:
-      path: nvm/default-packages
-      create: true

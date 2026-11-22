@@ -9,6 +9,16 @@ dependencies = [
   "ansible-core>=2.19,<2.20",
 ]
 
+# Resolute has a separate maintained Ansible runtime; do not widen the Focal
+# controller range, which must continue to target Python 3.8.
+[envs.resolute]
+detached = true
+python = "3.12"
+path = ".hatch-resolute"
+dependencies = [
+  "ansible-core>=2.21,<2.22",
+]
+
 [envs.default.scripts]
 syntax = "./ansible/run --syntax-check"
 preview = "./ansible/run --check"

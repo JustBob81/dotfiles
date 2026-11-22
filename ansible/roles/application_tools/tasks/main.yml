@@ -1,0 +1,907 @@
+---
+- name: Keep Albert opt-in closed while no Resolute package source is published
+  ansible.builtin.fail:
+    msg: >-
+      Albert is retained as an explicit launcher choice, but its configured OBS
+      xUbuntu_26.04 Release.key endpoint returns HTTP 404 and upstream lists no
+      Resolute package. Use the default Ulauncher path; do not substitute a
+      package repository for another Ubuntu release.
+  when: laptop_manage_albert | default(false) | bool
+
+- name: Inspect installed application packages
+  ansible.builtin.package_facts:
+    manager: apt
+  when: >-
+    laptop_manage_bruno | default(false) | bool or
+    laptop_manage_ulauncher | default(false) | bool or
+    laptop_manage_albert | default(false) | bool or
+    laptop_manage_chrome | default(false) | bool
+
+- name: Preview requested Google Chrome installation
+  ansible.builtin.debug:
+    msg: Install Google Chrome Stable from Google's signed APT repository.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - laptop_application_packages.chrome.package_name not in ansible_facts.packages
+
+- name: Inspect Google Chrome signing key and source definitions
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ laptop_application_repositories['google-chrome'].key_path }}"
+    - "{{ laptop_application_repositories['google-chrome'].source_path }}"
+  register: laptop_chrome_paths
+  when: laptop_manage_chrome | default(false) | bool
+
+- name: Read existing Google Chrome signing key identity
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - "{{ laptop_application_repositories['google-chrome'].key_path }}"
+  register: laptop_chrome_existing_key
+  changed_when: false
+  check_mode: false
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[0].stat.exists
+
+- name: Preserve a conflicting Google Chrome signing key
+  ansible.builtin.assert:
+    that:
+      - laptop_application_repositories['google-chrome'].key_fingerprint in laptop_chrome_existing_key.stdout
+    fail_msg: >-
+      Existing Google Chrome keyring does not match Google's published Linux
+      package signing identity; inspect it manually before provisioning.
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[0].stat.exists
+
+- name: Read existing Google Chrome source definition
+  ansible.builtin.slurp:
+    src: "{{ laptop_application_repositories['google-chrome'].source_path }}"
+  register: laptop_chrome_source
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[1].stat.exists
+
+- name: Decode existing Google Chrome source definition
+  ansible.builtin.set_fact:
+    laptop_chrome_source_text: "{{ laptop_chrome_source.content | b64decode }}"
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[1].stat.exists
+
+- name: Preserve a conflicting Google Chrome source definition
+  ansible.builtin.assert:
+    that:
+      - >-
+        laptop_chrome_source_text | trim == laptop_application_repositories['google-chrome'].source_line or
+        (
+          '### THIS FILE IS AUTOMATICALLY CONFIGURED ###' in laptop_chrome_source_text and
+          'X-Repolib-Name: Google Chrome' in laptop_chrome_source_text and
+          'Types: deb' in laptop_chrome_source_text and
+          'URIs: https://dl.google.com/linux/chrome-stable/deb/' in laptop_chrome_source_text and
+          'Suites: stable' in laptop_chrome_source_text and
+          'Components: main' in laptop_chrome_source_text and
+          'Architectures: amd64' in laptop_chrome_source_text and
+          'Signed-By: /usr/share/keyrings/google-chrome.gpg' in laptop_chrome_source_text
+        )
+    fail_msg: >-
+      Existing Google Chrome source is neither the reviewed bootstrap source nor
+      Google's package-managed stable amd64 source at
+      {{ laptop_application_repositories['google-chrome'].source_path }}.
+  when: laptop_manage_chrome | default(false) | bool and laptop_chrome_paths.results[1].stat.exists
+
+- name: Preview the Google Chrome signing key download
+  ansible.builtin.debug:
+    msg: Download and verify Google's published Linux package signing key.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Create a temporary location for the Google Chrome signing key
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .google-chrome-key
+  register: laptop_chrome_key_temp
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Download and verify the Google Chrome signing key with retries
+  ansible.builtin.shell: |
+    set -euo pipefail
+    destination={{ laptop_chrome_key_temp.path | quote }}
+    url={{ laptop_application_repositories['google-chrome'].key_url | quote }}
+    expected={{ laptop_application_repositories['google-chrome'].key_fingerprint | quote }}
+    for attempt in 1 2 3; do
+      if curl --fail --location --silent --show-error \
+           --connect-timeout 10 --max-time 30 \
+           --output "$destination" "$url" &&
+         test -s "$destination" &&
+         gpg --batch --show-keys --with-colons "$destination" |
+           awk -F: -v expected="$expected" '$1 == "fpr" && $10 == expected { found=1 } END { exit !found }'; then
+        chmod 0600 "$destination"
+        exit 0
+      fi
+      rm -f "$destination"
+      sleep 2
+    done
+    printf 'Google signing key download was empty or failed fingerprint verification after three attempts.\n' >&2
+    exit 1
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Create the APT keyring directory for Google Chrome
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Install the verified Google Chrome signing key
+  ansible.builtin.copy:
+    src: "{{ laptop_chrome_key_temp.path }}"
+    dest: "{{ laptop_application_repositories['google-chrome'].key_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Remove the temporary Google Chrome key
+  ansible.builtin.file:
+    path: "{{ laptop_chrome_key_temp.path }}"
+    state: absent
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[0].stat.exists
+
+- name: Declare the official Google Chrome Stable source
+  ansible.builtin.copy:
+    dest: "{{ laptop_application_repositories['google-chrome'].source_path }}"
+    content: "{{ laptop_application_repositories['google-chrome'].source_line }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: laptop_chrome_source_declaration
+  when:
+    - laptop_manage_chrome | default(false) | bool
+    - not laptop_chrome_paths.results[1].stat.exists
+
+- name: Refresh package indexes for explicitly requested Google Chrome
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - (laptop_chrome_source_declaration.changed | default(false)) or
+      laptop_application_packages.chrome.package_name not in ansible_facts.packages
+
+- name: Install Google Chrome Stable from its verified APT source
+  ansible.builtin.apt:
+    name: "{{ laptop_application_packages.chrome.package_name }}"
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_chrome | default(false) | bool
+    - laptop_application_packages.chrome.package_name not in ansible_facts.packages
+
+- name: Require the supported Minikube binary architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.architecture == 'x86_64'
+    fail_msg: This Minikube declaration currently supports x86_64 only.
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Inspect Minikube command resolution and managed binary
+  ansible.builtin.shell: |
+    command -v minikube || true
+  args:
+    executable: /bin/bash
+  register: laptop_minikube_command
+  changed_when: false
+  check_mode: false
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Inspect the managed Minikube binary path
+  ansible.builtin.stat:
+    path: "{{ laptop_application_packages.minikube.install_path }}"
+  register: laptop_minikube_binary
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Preserve an existing Minikube installation outside the managed path
+  ansible.builtin.assert:
+    that:
+      - >-
+        laptop_minikube_command.stdout | trim == '' or
+        laptop_minikube_command.stdout | trim == laptop_application_packages.minikube.install_path
+    fail_msg: >-
+      Minikube already resolves to {{ laptop_minikube_command.stdout | trim }}.
+      Review that installation before provisioning the managed binary at
+      {{ laptop_application_packages.minikube.install_path }}.
+  when: laptop_manage_minikube | default(false) | bool
+
+- name: Read the managed Minikube version
+  ansible.builtin.command:
+    argv: ["{{ laptop_application_packages.minikube.install_path }}", version, --short]
+  register: laptop_minikube_version
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - laptop_manage_minikube | default(false) | bool
+    - laptop_minikube_binary.stat.exists
+
+- name: Preserve a Minikube binary that differs from the declared version
+  ansible.builtin.assert:
+    that:
+      - laptop_minikube_version.rc == 0
+      - laptop_minikube_version.stdout | trim == ('v' ~ laptop_application_packages.minikube.version)
+    fail_msg: >-
+      Existing {{ laptop_application_packages.minikube.install_path }} is not
+      Minikube v{{ laptop_application_packages.minikube.version }}. Review it
+      manually before replacing it.
+  when:
+    - laptop_manage_minikube | default(false) | bool
+    - laptop_minikube_binary.stat.exists
+
+- name: Preview missing Minikube installation
+  ansible.builtin.debug:
+    msg: >-
+      Would install Minikube {{ laptop_application_packages.minikube.version }}
+      from the checksum-verified upstream Linux release.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Create the managed Minikube artifact cache
+  ansible.builtin.file:
+    path: /var/cache/dotfiles
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Download checksum-verified Minikube release binary
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.minikube.binary_url }}"
+    dest: "/var/cache/dotfiles/minikube-{{ laptop_application_packages.minikube.version }}-linux-amd64"
+    checksum: "sha256:{{ laptop_application_packages.minikube.sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Install the verified Minikube binary
+  ansible.builtin.copy:
+    src: "/var/cache/dotfiles/minikube-{{ laptop_application_packages.minikube.version }}-linux-amd64"
+    dest: "{{ laptop_application_packages.minikube.install_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Verify the installed Minikube version
+  ansible.builtin.command:
+    argv: ["{{ laptop_application_packages.minikube.install_path }}", version, --short]
+  register: laptop_minikube_installed_version
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Require the declared Minikube version after installation
+  ansible.builtin.assert:
+    that:
+      - laptop_minikube_installed_version.stdout | trim == ('v' ~ laptop_application_packages.minikube.version)
+    fail_msg: The installed Minikube binary did not report the declared version.
+  when:
+    - not ansible_check_mode
+    - laptop_manage_minikube | default(false) | bool
+    - not laptop_minikube_binary.stat.exists
+
+- name: Preview requested Ulauncher installation
+  ansible.builtin.debug:
+    msg: >-
+      Would install Ulauncher {{ laptop_application_packages.ulauncher.version }}
+      from the maintainer's Resolute development PPA.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - laptop_application_packages.ulauncher.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.ulauncher.package_name][0].version
+      != laptop_application_packages.ulauncher.version
+
+- name: Inspect Ulauncher signing key and source definitions
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ laptop_application_repositories['ulauncher-dev'].key_path }}"
+    - "{{ laptop_application_repositories['ulauncher-dev'].source_path }}"
+  register: laptop_ulauncher_paths
+  when: laptop_manage_ulauncher | default(false) | bool
+
+- name: Read existing Ulauncher signing key identity
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - "{{ laptop_application_repositories['ulauncher-dev'].key_path }}"
+  register: laptop_ulauncher_existing_key
+  changed_when: false
+  check_mode: false
+  when: laptop_manage_ulauncher | default(false) | bool and laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Preserve a conflicting Ulauncher signing key
+  ansible.builtin.assert:
+    that:
+      - laptop_application_repositories['ulauncher-dev'].key_fingerprint in laptop_ulauncher_existing_key.stdout
+    fail_msg: >-
+      Existing Ulauncher keyring does not match the Launchpad signing identity;
+      inspect it manually before provisioning.
+  when: laptop_manage_ulauncher | default(false) | bool and laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Read existing Ulauncher source definition
+  ansible.builtin.slurp:
+    src: "{{ laptop_application_repositories['ulauncher-dev'].source_path }}"
+  register: laptop_ulauncher_source
+  when: laptop_manage_ulauncher | default(false) | bool and laptop_ulauncher_paths.results[1].stat.exists
+
+- name: Preserve a conflicting Ulauncher source definition
+  ansible.builtin.assert:
+    that:
+      - laptop_ulauncher_source.content | b64decode | trim == laptop_application_repositories['ulauncher-dev'].source_line
+    fail_msg: >-
+      Existing Ulauncher source does not match the reviewed Resolute development
+      PPA definition at {{ laptop_application_repositories['ulauncher-dev'].source_path }}.
+  when: laptop_manage_ulauncher | default(false) | bool and laptop_ulauncher_paths.results[1].stat.exists
+
+- name: Preview the Ulauncher signing key download
+  ansible.builtin.debug:
+    msg: Download and verify the Ulauncher Launchpad signing key before enabling its source.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Create a temporary location for the Ulauncher signing key
+  ansible.builtin.tempfile:
+    state: file
+    suffix: .ulauncher-release-key
+  register: laptop_ulauncher_key_temp
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Download the Ulauncher signing key for fingerprint verification
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_repositories['ulauncher-dev'].key_url }}"
+    dest: "{{ laptop_ulauncher_key_temp.path }}"
+    mode: "0600"
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Read downloaded Ulauncher signing key identity
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - "{{ laptop_ulauncher_key_temp.path }}"
+  register: laptop_ulauncher_downloaded_key
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Require the reviewed Ulauncher Launchpad signing fingerprint
+  ansible.builtin.assert:
+    that:
+      - laptop_application_repositories['ulauncher-dev'].key_fingerprint in laptop_ulauncher_downloaded_key.stdout
+    fail_msg: Downloaded Ulauncher key does not match the reviewed Launchpad signing identity.
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Create the APT keyring directory for Ulauncher
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Install the verified Ulauncher signing key
+  ansible.builtin.copy:
+    src: "{{ laptop_ulauncher_key_temp.path }}"
+    dest: "{{ laptop_application_repositories['ulauncher-dev'].key_path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Remove the temporary Ulauncher key
+  ansible.builtin.file:
+    path: "{{ laptop_ulauncher_key_temp.path }}"
+    state: absent
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - not laptop_ulauncher_paths.results[0].stat.exists
+
+- name: Declare the Ulauncher Resolute development source
+  ansible.builtin.copy:
+    dest: "{{ laptop_application_repositories['ulauncher-dev'].source_path }}"
+    content: "{{ laptop_application_repositories['ulauncher-dev'].source_line }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: laptop_manage_ulauncher | default(false) | bool
+
+- name: Refresh package indexes for the pinned Ulauncher build
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+    - laptop_application_packages.ulauncher.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.ulauncher.package_name][0].version
+      != laptop_application_packages.ulauncher.version
+
+- name: Install the pinned Ulauncher Resolute build
+  ansible.builtin.apt:
+    name: "{{ laptop_application_packages.ulauncher.package_name }}={{ laptop_application_packages.ulauncher.version }}"
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_ulauncher | default(false) | bool
+
+- name: Ensure Albert configuration directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid | default(ansible_user_id) }}"
+    mode: "0755"
+  loop:
+    - "{{ ansible_env.HOME }}/.config/albert"
+    - "{{ ansible_env.HOME }}/.config/albert/org.albert.extension.websearch"
+  when: laptop_manage_albert | default(false) | bool
+
+- name: Seed Albert settings without replacing existing user configuration
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.config/albert/albert.conf"
+    content: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/albert/albert.conf') }}\n"
+    force: false
+    mode: "0600"
+  when: laptop_manage_albert | default(false) | bool
+
+- name: Seed Albert web searches without replacing existing user configuration
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.config/albert/org.albert.extension.websearch/engines.json"
+    content: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/albert/websearch-engines.json') }}\n"
+    force: false
+    mode: "0600"
+  when: laptop_manage_albert | default(false) | bool
+
+- name: Preview the GNOME launcher shortcut setup when no GNOME session is available
+  ansible.builtin.debug:
+    msg: >-
+      GNOME shortcut setup needs the logged-in user's D-Bus session. Run the
+      launcher shortcut helper with --launcher
+      {{ 'ulauncher' if laptop_manage_ulauncher | default(false) | bool else 'albert' }}
+      --apply from a GNOME terminal after login.
+  when:
+    - laptop_manage_ulauncher | default(false) | bool or laptop_manage_albert | default(false) | bool
+    - >-
+      ansible_env.XDG_CURRENT_DESKTOP is not defined or
+      'GNOME' not in ansible_env.XDG_CURRENT_DESKTOP or
+      ansible_env.DBUS_SESSION_BUS_ADDRESS is not defined
+
+- name: Preview or apply the GNOME shortcut for the selected launcher
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ playbook_dir }}/../tooling/launcher-gnome-shortcut.py"
+      - --launcher
+      - "{{ 'ulauncher' if laptop_manage_ulauncher | default(false) | bool else 'albert' }}"
+      - "{{ '--check' if ansible_check_mode else '--apply' }}"
+  register: laptop_launcher_gnome_shortcut
+  changed_when: (laptop_launcher_gnome_shortcut.stdout | from_json).changed | default(false)
+  failed_when: laptop_launcher_gnome_shortcut.rc != 0
+  check_mode: false
+  when:
+    - laptop_manage_ulauncher | default(false) | bool or laptop_manage_albert | default(false) | bool
+    - ansible_env.XDG_CURRENT_DESKTOP is defined
+    - "'GNOME' in ansible_env.XDG_CURRENT_DESKTOP"
+    - ansible_env.DBUS_SESSION_BUS_ADDRESS is defined
+
+- name: Preview requested Bruno installation or update
+  ansible.builtin.debug:
+    msg: >-
+      Would install Bruno {{ laptop_application_packages.bruno.version }} from its
+      checksum-verified official Debian package.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_bruno | default(false) | bool
+    - >-
+      laptop_application_packages.bruno.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.bruno.package_name][0].version
+      != laptop_application_packages.bruno.version
+
+- name: Inspect the cached Bruno package artifact
+  ansible.builtin.stat:
+    path: "/var/cache/dotfiles/bruno_{{ laptop_application_packages.bruno.version }}_amd64_linux.deb"
+    checksum_algorithm: sha256
+  register: laptop_bruno_artifact
+  when:
+    - laptop_manage_bruno | default(false) | bool
+    - >-
+      laptop_application_packages.bruno.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.bruno.package_name][0].version
+      != laptop_application_packages.bruno.version
+
+- name: Refuse to overwrite a conflicting cached Bruno artifact
+  ansible.builtin.assert:
+    that:
+      - not laptop_bruno_artifact.stat.exists or laptop_bruno_artifact.stat.checksum == laptop_application_packages.bruno.sha256
+    fail_msg: >-
+      A file already exists at the managed Bruno cache path and does not match
+      its declared SHA256. Review it manually; Ansible will preserve it.
+  when:
+    - laptop_manage_bruno | default(false) | bool
+    - >-
+      laptop_application_packages.bruno.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.bruno.package_name][0].version
+      != laptop_application_packages.bruno.version
+
+- name: Create the managed Bruno artifact cache
+  ansible.builtin.file:
+    path: /var/cache/dotfiles
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_bruno | default(false) | bool
+    - >-
+      laptop_application_packages.bruno.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.bruno.package_name][0].version
+      != laptop_application_packages.bruno.version
+
+- name: Download checksum-verified Bruno Debian package
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.bruno.deb_url }}"
+    dest: "/var/cache/dotfiles/bruno_{{ laptop_application_packages.bruno.version }}_amd64_linux.deb"
+    checksum: "sha256:{{ laptop_application_packages.bruno.sha256 }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_bruno | default(false) | bool
+    - >-
+      laptop_application_packages.bruno.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.bruno.package_name][0].version
+      != laptop_application_packages.bruno.version
+    - not laptop_bruno_artifact.stat.exists
+
+- name: Install or update Bruno from the verified Debian package
+  ansible.builtin.apt:
+    deb: "/var/cache/dotfiles/bruno_{{ laptop_application_packages.bruno.version }}_amd64_linux.deb"
+    state: present
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_bruno | default(false) | bool
+    - >-
+      laptop_application_packages.bruno.package_name not in ansible_facts.packages or
+      ansible_facts.packages[laptop_application_packages.bruno.package_name][0].version
+      != laptop_application_packages.bruno.version
+
+- name: Ensure Snap is available for explicitly selected CLIs
+  ansible.builtin.apt:
+    name: snapd
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when: >-
+    laptop_manage_kubectl | bool or laptop_manage_google_cloud | bool or
+    laptop_manage_firefox | default(false) | bool or
+    laptop_manage_gimp | default(false) | bool or
+    laptop_manage_spotify | default(false) | bool
+
+- name: Inspect installed Snap packages
+  ansible.builtin.command:
+    argv: [snap, list]
+  register: laptop_snap_list
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: >-
+    laptop_manage_kubectl | bool or laptop_manage_google_cloud | bool or
+    laptop_manage_firefox | default(false) | bool or
+    laptop_manage_gimp | default(false) | bool or
+    laptop_manage_spotify | default(false) | bool
+
+- name: Preview missing GIMP stable Snap installation
+  ansible.builtin.debug:
+    msg: Would install the official GIMP stable Snap from the verified GIMP team publisher.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_gimp | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^gimp\s') | list | length == 0
+
+- name: Install official GIMP stable Snap
+  ansible.builtin.command:
+    argv: [timeout, 300, snap, install, gimp, --channel=latest/stable]
+  register: laptop_gimp_install
+  retries: 3
+  delay: 10
+  until: laptop_gimp_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_gimp | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^gimp\s') | list | length == 0
+
+- name: Preview missing Spotify stable Snap installation
+  ansible.builtin.debug:
+    msg: Would install Spotify from its verified publisher's stable Snap.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_spotify | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^spotify\s') | list | length == 0
+
+- name: Install Spotify stable Snap
+  ansible.builtin.command:
+    argv: [timeout, 180, snap, install, spotify, --channel=latest/stable]
+  register: laptop_spotify_install
+  retries: 3
+  delay: 10
+  until: laptop_spotify_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_spotify | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^spotify\s') | list | length == 0
+
+- name: Preview missing Firefox stable Snap installation
+  ansible.builtin.debug:
+    msg: Would install Firefox from the official Ubuntu Snap channel.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_firefox | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^firefox\s') | list | length == 0
+
+- name: Install Firefox from the official Ubuntu stable Snap channel
+  ansible.builtin.command:
+    argv: [timeout, 120, snap, install, firefox, --channel=latest/stable]
+  register: laptop_firefox_install
+  retries: 3
+  delay: 10
+  until: laptop_firefox_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_firefox | default(false) | bool
+    - laptop_snap_list.stdout_lines | select('match', '^firefox\s') | list | length == 0
+
+- name: Preview missing kubectl Snap installation
+  ansible.builtin.debug:
+    msg: Would install kubectl from the Kubernetes-supported Snap channel.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_kubectl | bool
+    - laptop_snap_list.stdout_lines | select('match', '^kubectl\s') | list | length == 0
+
+- name: Install kubectl from the Kubernetes-supported Snap channel
+  ansible.builtin.command:
+    argv: [timeout, 120, snap, install, kubectl, --classic]
+  register: laptop_kubectl_install
+  retries: 3
+  delay: 10
+  until: laptop_kubectl_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_kubectl | bool
+    - laptop_snap_list.stdout_lines | select('match', '^kubectl\s') | list | length == 0
+
+- name: Preview missing Google Cloud CLI Snap installation
+  ansible.builtin.debug:
+    msg: Would install the optional Google Cloud CLI Snap.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_google_cloud | bool
+    - laptop_snap_list.stdout_lines | select('match', '^google-cloud-cli\s') | list | length == 0
+
+- name: Install optional Google Cloud CLI Snap
+  ansible.builtin.command:
+    argv: [timeout, 120, snap, install, google-cloud-cli, --classic]
+  register: laptop_google_cloud_install
+  retries: 3
+  delay: 10
+  until: laptop_google_cloud_install.get('rc', 1) == 0
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_google_cloud | bool
+    - laptop_snap_list.stdout_lines | select('match', '^google-cloud-cli\s') | list | length == 0
+
+- name: Inspect MongoDB signing key and source paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ laptop_application_repositories.mongodb.key_path }}"
+    - "{{ laptop_application_repositories.mongodb.source_path }}"
+  register: laptop_mongodb_paths
+  when: laptop_manage_mongodb | bool
+
+- name: Inspect any existing MongoDB signing key
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - "{{ laptop_application_repositories.mongodb.key_path }}"
+  register: laptop_mongodb_existing_key
+  changed_when: false
+  check_mode: false
+  when: laptop_manage_mongodb | bool and laptop_mongodb_paths.results[0].stat.exists
+
+- name: Preserve a conflicting MongoDB signing key
+  ansible.builtin.assert:
+    that:
+      - laptop_application_repositories.mongodb.key_fingerprint in laptop_mongodb_existing_key.stdout
+    fail_msg: >-
+      Existing MongoDB keyring does not match the reviewed signing key at
+      {{ laptop_application_repositories.mongodb.key_path }}; inspect it manually.
+  when: laptop_manage_mongodb | bool and laptop_mongodb_paths.results[0].stat.exists
+
+- name: Download the reviewed MongoDB 9 signing key
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_repositories.mongodb.key_url }}"
+    dest: "{{ laptop_application_repositories.mongodb.key_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: laptop_manage_mongodb | bool and not laptop_mongodb_paths.results[0].stat.exists
+
+- name: Verify downloaded MongoDB signing key fingerprint
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - "{{ laptop_application_repositories.mongodb.key_path }}"
+  register: laptop_mongodb_key
+  changed_when: false
+  when: laptop_manage_mongodb | bool and not ansible_check_mode
+
+- name: Require the reviewed MongoDB signing key fingerprint
+  ansible.builtin.assert:
+    that:
+      - laptop_application_repositories.mongodb.key_fingerprint in laptop_mongodb_key.stdout
+    fail_msg: Downloaded MongoDB key does not match the reviewed signing identity.
+  when: laptop_manage_mongodb | bool and not ansible_check_mode
+
+- name: Read existing MongoDB source definition
+  ansible.builtin.slurp:
+    src: "{{ laptop_application_repositories.mongodb.source_path }}"
+  register: laptop_mongodb_source
+  when: laptop_manage_mongodb | bool and laptop_mongodb_paths.results[1].stat.exists
+
+- name: Preserve a conflicting MongoDB source definition
+  ansible.builtin.assert:
+    that:
+      - laptop_mongodb_source.content | b64decode | trim == laptop_application_repositories.mongodb.source_line
+    fail_msg: >-
+      Existing MongoDB source does not match the reviewed Resolute MongoDB 9
+      definition at {{ laptop_application_repositories.mongodb.source_path }}.
+  when: laptop_manage_mongodb | bool and laptop_mongodb_paths.results[1].stat.exists
+
+- name: Declare the reviewed MongoDB 9 source
+  ansible.builtin.copy:
+    dest: "{{ laptop_application_repositories.mongodb.source_path }}"
+    content: "{{ laptop_application_repositories.mongodb.source_line }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  register: laptop_mongodb_source_declaration
+  when: laptop_manage_mongodb | bool
+
+- name: Refresh package indexes for explicitly requested MongoDB packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+    auto_install_module_deps: false
+  become: true
+  when: laptop_manage_mongodb | bool and not ansible_check_mode

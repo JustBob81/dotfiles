@@ -30,6 +30,15 @@ node_modules/
 .python-version
 *.pyc
 
+# R session state and generated project libraries (keep renv.lock tracked)
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+renv/library/
+renv/staging/
+.rvenv/
+
 # Thumbnail cache files
 ._*
 Thumbs.db

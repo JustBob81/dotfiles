@@ -1,0 +1,119 @@
+---
+- name: Inspect Firefox launchers before managing its extension policy
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - /usr/bin/firefox
+    - /snap/bin/firefox
+  register: laptop_firefox_launchers
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Require Firefox to be installed before managing extensions
+  ansible.builtin.assert:
+    that:
+      - laptop_firefox_launchers.results | selectattr('stat.exists') | list | length > 0
+    fail_msg: Install Firefox separately before provisioning the LastPass extension.
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Inspect Firefox policy directory without following symlinks
+  ansible.builtin.stat:
+    path: /etc/firefox/policies
+    follow: false
+  register: laptop_firefox_policy_directory
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Preserve a conflicting Firefox policy directory
+  ansible.builtin.assert:
+    that:
+      - not laptop_firefox_policy_directory.stat.exists or
+        (laptop_firefox_policy_directory.stat.isdir and not laptop_firefox_policy_directory.stat.islnk)
+    fail_msg: /etc/firefox/policies exists but is not a real directory; resolve it manually.
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Create Firefox policy directory when absent
+  ansible.builtin.file:
+    path: /etc/firefox/policies
+    state: directory
+    mode: '0755'
+  become: true
+  when:
+    - laptop_manage_lastpass_extension | bool
+    - not laptop_firefox_policy_directory.stat.exists
+
+- name: Inspect existing Firefox policy file without following symlinks
+  ansible.builtin.stat:
+    path: "{{ laptop_firefox_policy_file }}"
+    follow: false
+  register: laptop_firefox_policy_file_stat
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Preserve non-regular Firefox policy files
+  ansible.builtin.assert:
+    that:
+      - not laptop_firefox_policy_file_stat.stat.exists or
+        (laptop_firefox_policy_file_stat.stat.isreg and not laptop_firefox_policy_file_stat.stat.islnk)
+    fail_msg: The Firefox policy path is not a regular file; resolve it manually.
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Read existing Firefox policies for a non-destructive merge
+  ansible.builtin.slurp:
+    src: "{{ laptop_firefox_policy_file }}"
+  register: laptop_firefox_policy_file_content
+  when:
+    - laptop_manage_lastpass_extension | bool
+    - laptop_firefox_policy_file_stat.stat.exists
+
+- name: Parse existing Firefox policies or start with an empty policy object
+  ansible.builtin.set_fact:
+    laptop_firefox_policy_current: >-
+      {{ (laptop_firefox_policy_file_content.content | b64decode | from_json)
+         if laptop_firefox_policy_file_stat.stat.exists else {'policies': {}} }}
+    laptop_lastpass_declaration: "{{ laptop_firefox_extension_declarations.lastpass }}"
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Require a valid Firefox policy structure and avoid replacing LastPass policy
+  ansible.builtin.assert:
+    that:
+      - laptop_firefox_policy_current is mapping
+      - laptop_firefox_policy_current.get('policies', {}) is mapping
+      - laptop_firefox_policy_current.get('policies', {}).get('ExtensionSettings', {}) is mapping
+      - >-
+        laptop_lastpass_declaration.id not in
+        laptop_firefox_policy_current.get('policies', {}).get('ExtensionSettings', {}) or
+        laptop_firefox_policy_current.get('policies', {}).get('ExtensionSettings', {}).get(laptop_lastpass_declaration.id) == laptop_lastpass_declaration.policy
+    fail_msg: >-
+      Existing Firefox policies are invalid or configure LastPass differently.
+      Review /etc/firefox/policies/policies.json and merge the setting manually.
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Merge the managed LastPass setting into existing Firefox extension policies
+  ansible.builtin.set_fact:
+    laptop_firefox_extension_settings_merged: >-
+      {{ laptop_firefox_policy_current.get('policies', {}).get('ExtensionSettings', {})
+         | combine({laptop_lastpass_declaration.id: laptop_lastpass_declaration.policy}) }}
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Preserve other Firefox policies while adding the LastPass extension declaration
+  ansible.builtin.set_fact:
+    laptop_firefox_policies_merged: >-
+      {{ laptop_firefox_policy_current.get('policies', {})
+         | combine({'ExtensionSettings': laptop_firefox_extension_settings_merged}, recursive=True) }}
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Ensure LastPass Firefox extension is installed as a removable user extension
+  ansible.builtin.copy:
+    dest: "{{ laptop_firefox_policy_file }}"
+    content: "{{ laptop_firefox_policy_current | combine({'policies': laptop_firefox_policies_merged}, recursive=True) | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  when: laptop_manage_lastpass_extension | bool
+
+- name: Explain manual LastPass sign-in and policy verification
+  ansible.builtin.debug:
+    msg: >-
+      Firefox will install LastPass from addons.mozilla.org at its next startup.
+      Sign in and complete MFA manually, then verify the policy in about:policies.
+  when: laptop_manage_lastpass_extension | bool

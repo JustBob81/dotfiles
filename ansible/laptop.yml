@@ -44,3 +44,5 @@
       tags: [shared_tools]
     - role: emacs_tools
       tags: [emacs_tools]
+    - role: firefox_extensions
+      tags: [firefox_extensions]

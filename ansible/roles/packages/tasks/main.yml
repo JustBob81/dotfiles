@@ -11,6 +11,16 @@
       {{ laptop_enabled_package_groups | map('extract', laptop_package_groups) |
          flatten | unique | sort }}
 
+- name: Defer MongoDB package resolution in check mode until its source is applied
+  ansible.builtin.set_fact:
+    laptop_packages_to_install: "{{ laptop_selected_packages | difference(['mongodb-org']) }}"
+  when: ansible_check_mode and laptop_manage_mongodb | default(false) | bool
+
+- name: Select packages for explicit installation
+  ansible.builtin.set_fact:
+    laptop_packages_to_install: "{{ laptop_selected_packages }}"
+  when: not (ansible_check_mode and laptop_manage_mongodb | default(false) | bool)
+
 - name: Read installed package information
   ansible.builtin.package_facts:
     manager: apt
@@ -23,10 +33,15 @@
 
 - name: Ensure selected baseline packages are present when explicitly requested
   ansible.builtin.apt:
-    name: "{{ laptop_selected_packages }}"
+    name: "{{ laptop_packages_to_install }}"
     state: present
     update_cache: false
     fail_on_autoremove: true
     auto_install_module_deps: false
   become: true
   when: laptop_manage_packages | bool
+
+- name: Explain MongoDB check-mode package deferral
+  ansible.builtin.debug:
+    msg: MongoDB is planned, but its repository is not refreshed in check mode; resolve mongodb-org during the explicit apply.
+  when: ansible_check_mode and laptop_manage_mongodb | default(false) | bool

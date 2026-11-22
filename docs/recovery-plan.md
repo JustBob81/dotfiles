@@ -111,17 +111,21 @@ provisioning and supported-LTS profiles remain subsequent milestones.
 
 ## Shared tool provisioning
 
-The next branch declares persistent user-level Python, pipx, and Hatch in
+The shared tooling branch declares persistent user-level Python, pipx, and CLI tools in
 `config/shared-python-tools.json`, with a standard-library bootstrap usable before
 Ansible exists. direnv is a declared APT prerequisite. The default run only audits;
 `--provision-tools` explicitly enables user-level provisioning. The old Python
-location and pipx application home are retained to preserve dependents. No uv
+location and pipx application home are retained to preserve dependents. Pyenv shell
+initialization is retired and all managed pipx apps have moved to the declared
+Python. Existing project virtual environments still point to pyenv's Python 3.9.2
+and 3.10.0; preserve those runtime files until those project environments migrate.
+No uv
 installation is needed on a fresh machine. See
 [shared Python tooling](shared-python-tools.md) for preview and validation steps.
 Live provisioning succeeded on the repaired laptop: one changed task on first
-application, then `changed=0 failed=0` on the repeat. pipx 1.17.6 and Hatch 1.18.2
-match policy, and the audit reports no drift or missing system packages.
-Fresh-machine archive installation and a complete restore still need validation.
+application, then `changed=0 failed=0` on the repeat. The shared tools audit now
+reports no drift across all declared CLI apps. Fresh-machine archive installation
+and a complete restore still need validation.
 
 
 ## Emacs and Codex provisioning
@@ -135,6 +139,8 @@ The historical emacs-local repository is superseded. See
 validation blockers, and the limits of version pinning. Current Snap execution
 and authenticated ACP validation must be repeated in a normal local terminal
 before this recovery checkpoint can be considered complete.
+See [credential and secret recovery](credential-recovery.md) for LastPass,
+`authinfo.gpg`, SSH/GPG key migration, and IDrive recovery boundaries.
 
 Fresh-VM testing found gaps hidden by the repaired laptop. Dotfiles now handles
 internal Python archive aliases, a longer bounded cold package bootstrap, and
@@ -143,3 +149,19 @@ as `4d1c0d58e466ccf65786c9dbdac54bc35fe4e23f`, now selected by the initial-revis
 pin. The Emacs session reports startup/shutdown and all three ERT tests passed. The VM's successful
 continuation required retries and a signed Snap workaround; it is not clean replay
 evidence. See [the November 16 VM findings](vm-test-20261116.md).
+
+
+## Supported Ubuntu profile milestone
+
+The clean Focal recovery replay passed. The next profile is Ubuntu 26.04.1 LTS on
+`feature/ubuntu-26-04-profile`, selected for its longer standard-support runway.
+The separate Resolute profile passed both a clean Ubuntu 26.04.1 Server cloud-image
+replay and the interactive Desktop install/profile setup. The Desktop guest emitted
+`RESOLUTE_DESKTOP_PROFILE_SETUP_COMPLETE` after its repeat package run passed
+`changed=0`. The guest then passed restart/login/shutdown and Emacs/Codex
+provisioning, startup/shutdown, ERT, authenticated ACP, and interactive Agent
+Shell checks. Next live-boot the XPS 13 9380 and check its hardware. Keep the
+validated Focal profile as-is.
+Vendor repositories and packages need fresh compatibility review; do not carry
+Bionic/Focal endpoints forward by string substitution. See
+[the 26.04 profile milestone](ubuntu-26.04-profile.md).
