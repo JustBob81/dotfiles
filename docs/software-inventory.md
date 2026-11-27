@@ -46,7 +46,7 @@ No software was installed or removed during this inventory.
 | Thunderbird | Thunderbird 115.18 and locale packages installed | Exclude from the new setup. | Host leftovers are not part of this migration inventory. |
 | Wine | Wine 8.0.1, WineHQ packages, Winetricks, and `~/.wine` data present | Exclude Wine from the new setup. | Host leftovers are not part of this migration inventory. |
 | Calibre, TeX Live, Pandoc | Calibre installed under `/opt/calibre`; TeX Live full 2019; Pandoc 2.5 | Keep; TeX and Pandoc support Emacs writing workflows. | Not declared in the Resolute profile. Calibre uses a manual install location; choose reproducible install methods and a TeX package scope. |
-| Remmina | APT Remmina 1.4.25 with RDP/VNC/secret plugins | Keep. | Not declared in the Resolute profile. |
+| Remmina | APT Remmina 1.4.25 with RDP/VNC/secret plugins | Keep. | Resolute `--install-apps` installs Remmina and the Ubuntu archive's RDP, VNC, and secret plugins. Connection profiles and saved credentials remain user data and are not copied or committed. |
 
 ## Additional selected applications
 

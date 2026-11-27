@@ -244,7 +244,8 @@ Run from the repository root:
 ./ansible/run --apply --install-packages
 
 # On Resolute, opt into the reviewed application groups, including browsers,
-# Minikube, GIMP, Spotify, LastPass extension policy, and Caffeine. Account sign-in is manual.
+# Minikube, Remmina, GIMP, Spotify, LastPass extension policy, and Caffeine.
+# Account sign-in is manual.
 ./ansible/run-resolute --check --install-apps
 ./ansible/run-resolute --apply --install-apps
 # Use the optional Albert choice instead of default Ulauncher (currently fails closed on Resolute).
@@ -290,9 +291,10 @@ Ansible stops after a failed task; do not bypass failures with `ignore_errors`.
 - `roles/packages`: package audit and optional installation.
 - Resolute-only `roles/application_tools`: Firefox stable Snap and LastPass
   extension policy, Google Chrome from Google's signed stable APT source,
-  GIMP and Spotify stable Snaps, pinned Minikube release binary, opt-in kubectl
-  and Google Cloud Snaps, Bruno, the pinned Ulauncher Resolute development
-  package, and the reviewed MongoDB 9 source/key. Albert
+  GIMP and Spotify stable Snaps, pinned Minikube release binary, Remmina and
+  its selected protocol plugins from Ubuntu, opt-in kubectl and Google Cloud
+  Snaps, Bruno, the pinned Ulauncher Resolute development package, and the
+  reviewed MongoDB 9 source/key. Albert
   settings and web searches seed only absent config files; Caffeine comes from
   Ubuntu's archive. GNOME shortcut setup
   preserves existing custom bindings and is applied only inside the logged-in

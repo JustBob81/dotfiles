@@ -27,6 +27,10 @@
         - haskell-stack
       desktop:
         - caffeine
+        - remmina
+        - remmina-plugin-rdp
+        - remmina-plugin-vnc
+        - remmina-plugin-secret
       mongodb:
         - mongodb-org
     laptop_enabled_package_groups: [base]
