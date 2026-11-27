@@ -377,11 +377,7 @@
 
 - name: Inspect the current user's Flatpak remotes
   ansible.builtin.command:
-    argv:
-      - flatpak
-      - remotes
-      - --user
-      - --columns=name,url
+    argv: [flatpak, remotes, --user, --columns=name]
   register: laptop_flatpak_remotes
   changed_when: false
   check_mode: false
@@ -389,31 +385,38 @@
     - laptop_manage_parabolic | default(false) | bool
     - not (ansible_check_mode and 'flatpak' not in ansible_facts.packages)
 
-- name: Select the current user's Flathub remote details
-  ansible.builtin.set_fact:
-    laptop_flatpak_remote_entries: >-
-      {{ laptop_flatpak_remotes.stdout_lines |
-         select('match', '^' ~ laptop_application_packages.parabolic.remote_name ~ '\\s+') |
-         list }}
+- name: Inspect the current user's Flathub remote URL
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - remotes
+      - --user
+      - --columns=name,url
+  register: laptop_flatpak_remote_details
+  changed_when: false
+  check_mode: false
   when:
     - laptop_manage_parabolic | default(false) | bool
     - not (ansible_check_mode and 'flatpak' not in ansible_facts.packages)
+    - laptop_flatpak_remotes.stdout_lines | select('equalto', laptop_application_packages.parabolic.remote_name) | list | length > 0
 
 - name: Preserve a conflicting Flathub remote definition
   ansible.builtin.assert:
     that:
       - >-
-        laptop_flatpak_remote_entries[0].split()[1] in [
+        item.split()[1] in [
           'https://dl.flathub.org/repo/',
           laptop_application_packages.parabolic.remote_url
         ]
     fail_msg: >-
       The current user's Flathub remote name is already configured with a different URL.
       Review it manually; Ansible will preserve it.
+  loop: "{{ laptop_flatpak_remote_details.stdout_lines | default([]) }}"
   when:
     - laptop_manage_parabolic | default(false) | bool
     - not (ansible_check_mode and 'flatpak' not in ansible_facts.packages)
-    - laptop_flatpak_remote_entries | length > 0
+    - item.split() | length > 1
+    - item.split()[0] == laptop_application_packages.parabolic.remote_name
 
 - name: Preview the user's Flathub remote setup
   ansible.builtin.debug:
@@ -423,7 +426,7 @@
     - ansible_check_mode
     - laptop_manage_parabolic | default(false) | bool
     - "'flatpak' in ansible_facts.packages"
-    - laptop_flatpak_remote_entries | length == 0
+    - laptop_flatpak_remotes.stdout_lines | select('equalto', laptop_application_packages.parabolic.remote_name) | list | length == 0
 
 - name: Add the user's Flathub remote when absent
   ansible.builtin.command:
@@ -442,7 +445,7 @@
   when:
     - not ansible_check_mode
     - laptop_manage_parabolic | default(false) | bool
-    - laptop_flatpak_remote_entries | length == 0
+    - laptop_flatpak_remotes.stdout_lines | select('equalto', laptop_application_packages.parabolic.remote_name) | list | length == 0
 
 - name: Inspect an existing user Parabolic installation
   ansible.builtin.command:
