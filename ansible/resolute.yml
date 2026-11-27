@@ -27,6 +27,7 @@
         - haskell-stack
       desktop:
         - caffeine
+        - flatpak
         - remmina
         - remmina-plugin-rdp
         - remmina-plugin-vnc
@@ -44,6 +45,7 @@
     laptop_manage_firefox: false
     laptop_manage_gimp: false
     laptop_manage_spotify: false
+    laptop_manage_parabolic: false
     laptop_manage_minikube: false
     laptop_manage_emacs: false
   pre_tasks:

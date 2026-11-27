@@ -12,6 +12,7 @@ repositories. Package installation remains opt-in.
 | Google Chrome | `google-chrome-stable` from Google's signed Stable APT repository | Included by `--install-apps` for project browser debugging. The key fingerprint is checked against Google's published Linux package key; Google's repository supplies browser updates. |
 | Image editor | Official GIMP Snap from the verified GIMP team publisher | Included by `--install-apps` on `latest/stable`; Snap updates follow the stable channel. |
 | Music streaming | Spotify Snap from its verified publisher | Included by `--install-apps` on `latest/stable`; Spotify sign-in remains manual. |
+| Video downloader | Parabolic (`org.nickvision.tubeconverter`) from Flathub's stable branch | Included by `--install-apps`; Flatpak comes from Ubuntu and Ansible adds the current user's Flathub remote only if absent, preserving a conflicting remote definition. The app and its GNOME runtime are installed for the user; the manifest includes its media tools. Updates use `flatpak update`; stable is not an exact version lock. Downloads remain in `~/Downloads`; app settings stay in Flatpak's per-user data. The Flathub manifest grants network access, Downloads access, and read-only access to supported browser profiles for cookie import. ClipGrab is retired from the new profile; no settings or downloads are migrated. An existing ClipGrab installation on the test VM is left untouched. |
 | Remote desktop | Ubuntu `remmina` package with the RDP, VNC, and secret plugins | Included by `--install-apps` from Ubuntu's Resolute archive. Remmina connection profiles and saved credentials are user data; this setup does not create, transfer, or commit them. The secret plugin uses the system secret service. |
 | Containers | Ubuntu `docker.io` and `docker-compose-v2` | Uses Ubuntu packages, avoiding a Docker vendor source. Docker starts its daemon; Docker data and access policy remain separate. |
 | Keep-awake utility | Ubuntu `caffeine` package (2.9.14-1 in Resolute) | Included by `--install-apps`. Its fullscreen detection depends on X11-related libraries; verify its indicator and behavior in the GNOME Wayland VM. If that is limited, the Caffeine GNOME Shell extension has an active build for GNOME 50. |
@@ -25,8 +26,8 @@ repositories. Package installation remains opt-in.
 | Alternate launcher | Albert | Explicit alternate via `--install-albert`; this replaces Ulauncher for that run. Albert is currently unavailable from its Ubuntu 26.04 OBS endpoint (HTTP 404), and the profile fails closed without adding its source or installing a package built for another Ubuntu release. Existing settings and web-search declarations remain preserved for when a supported Resolute package source is available. |
 | Google Cloud CLI | Official `google-cloud-cli` Snap | Optional and independent of Kubernetes. Google sign-in and account configuration remain manual. |
 
-`./ansible/run-resolute --check --install-apps` previews Remmina, containers,
-PostgreSQL, Haskell, `kubectl`, Minikube, Bruno, and Ulauncher.
+`./ansible/run-resolute --check --install-apps` previews Remmina, Parabolic,
+containers, PostgreSQL, Haskell, `kubectl`, Minikube, Bruno, and Ulauncher.
 Add `--apply` to install them.
 The default launcher is Ulauncher. Albert can be selected explicitly with
 `--install-albert`; its current Resolute source is unavailable, so that choice
