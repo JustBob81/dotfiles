@@ -18,7 +18,16 @@ done
 command -v genisoimage >/dev/null || { printf '%s\n' 'Missing command: genisoimage' >&2; exit 1; }
 backup_tag=initial
 if [[ -e "$base/dotfiles-seed-initial.iso" || -e "$base/dotfiles-snapshot-initial.tar.gz" || -e "$base/dotfiles-snapshot-initial.sha256" ]]; then
-    backup_tag="previous-$(date -u +%Y%m%d-%H%M%S)"
+    stamp=$(date -u +%Y%m%d-%H%M%S)
+    backup_tag="previous-$stamp"
+    suffix=1
+    while [[ -e "$base/dotfiles-seed-$backup_tag.iso" ||
+            -e "$base/dotfiles-snapshot-$backup_tag.tar.gz" ||
+            -e "$base/dotfiles-snapshot-$backup_tag.sha256" ||
+            -e "$base/source-state-$backup_tag.txt" ]]; do
+        backup_tag="previous-$stamp-$suffix"
+        suffix=$((suffix + 1))
+    done
 fi
 for file in "dotfiles-seed-$backup_tag.iso" "dotfiles-snapshot-$backup_tag.tar.gz" "dotfiles-snapshot-$backup_tag.sha256" "source-state-$backup_tag.txt"; do
     [[ ! -e "$base/$file" ]] || { printf 'Refusing to overwrite preserved file: %s\n' "$base/$file" >&2; exit 1; }
