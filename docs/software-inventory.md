@@ -45,13 +45,21 @@ No software was installed or removed during this inventory.
 | Postman / Bruno | Postman Snap 9.31.30 installed; no Bruno installation found | Replace Postman with Bruno, using the official pinned `.deb` and SHA256 checksum. | Resolute `--install-apps` provisions Bruno 4.3.0 from the official GitHub release asset. Its release page reports the matching SHA256. Validate launch and import/workspace behavior in the VM before considering Postman retired there. The old host Postman is untouched. |
 | Thunderbird | Thunderbird 115.18 and locale packages installed | Exclude from the new setup. | Host leftovers are not part of this migration inventory. |
 | Wine | Wine 8.0.1, WineHQ packages, Winetricks, and `~/.wine` data present | Exclude Wine from the new setup. | Host leftovers are not part of this migration inventory. |
-| Calibre, TeX Live, Pandoc | Calibre installed under `/opt/calibre`; TeX Live full 2019; Pandoc 2.5 | Keep; TeX and Pandoc support Emacs writing workflows. | Pandoc and a practical LaTeX/XeTeX/LuaTeX package set are part of the main Resolute desktop package group for Emacs writing and export. This does not reproduce the old full TeX Live installation or all of its documentation. Calibre remains for a separate source and update-policy decision. |
+| Calibre, TeX Live, Pandoc | Calibre installed under `/opt/calibre`; TeX Live full 2019; Pandoc 2.5 | Keep; TeX and Pandoc support Emacs writing workflows. | Pandoc and a practical LaTeX/XeTeX/LuaTeX package set are part of the main Resolute desktop package group for Emacs writing and export. This does not reproduce the old full TeX Live installation or all of its documentation. Calibre 9.19.0 is installed from its versioned upstream archive into `~/.local/opt/calibre/9.19.0`; its detached GPG signature is checked against the pinned publisher fingerprint. The managed launcher and desktop entry are user-local. Calibre library, settings, and device data remain user data and are not migrated. Bump the manifest version after reviewing a release; older managed binaries are preserved for manual cleanup. |
 | Remmina | APT Remmina 1.4.25 with RDP/VNC/secret plugins | Keep. | Resolute `--install-apps` installs Remmina and the Ubuntu archive's RDP, VNC, and secret plugins. Connection profiles and saved credentials remain user data and are not copied or committed. |
 
 ## Additional selected applications
 
 The user confirmed these should be included in the new setup: Audacity, MusicBrainz
-Picard, Zoom, Asunder, LibreOffice, and Simple Scan. The optional
+Picard, Zoom, Asunder, LibreOffice, and Simple Scan. The main
+`--install-apps` group provisions Zoom Workplace from Zoom's versioned official
+DEB after verifying the pinned Zoom key fingerprint and dpkg-sig signature
+format, including the signed hashes of the package's archive members. The local
+verifier is used because Resolute does not publish the `dpkg-sig` package Zoom
+documents. Its current reviewed version is 7.2.5.6661. This is a pinned
+package, not an APT update source; upgrades require updating the versioned URL
+in the manifest.
+The optional
 `--install-additional-apps` group provisions Audacity from its official,
 versioned, SHA256-verified AppImage; Picard from the Flathub stable branch; and
 Asunder, LibreOffice, and Simple Scan from Ubuntu's Resolute archive. Pandoc and
@@ -64,13 +72,15 @@ Flathub build is community packaged and is not marked verified by Flathub, thoug
 the MusicBrainz download page lists Flathub as a supported Linux distribution
 channel.
 
-Zoom and Calibre are not yet in this group. Zoom's official Linux distribution
-is a downloadable DEB rather than an APT repository, so updates would need an
-explicit version/checksum refresh policy. Calibre's upstream recommends its
-own binary installer and explicitly discourages the distribution package; its
-installer is a mutable script unless the release artifacts and installer are
-managed separately. These need dedicated provisioning work rather than being
-silently treated as archive packages.
+Calibre is provisioned by the optional `--install-additional-apps` flow from
+the exact upstream release archive and detached signature. Its upstream
+recommends the bundled binary over distribution packages. The profile installs
+it in a versioned user directory, avoiding the vendor installer’s system-wide
+post-install behavior. It pins the release and full GPG fingerprint, but does
+not pin transitive OS libraries or the Calibre user library/settings. Updates
+require reviewing the release and changing the manifest; they do not happen
+automatically. Older versioned application directories are retained so an
+update does not delete the previous binary.
 
 IDrive was configured manually and a backup/restore sample was verified earlier.
 Its installer, service state, backup schedule, and latest backup freshness are
@@ -82,8 +92,7 @@ data out of Git; verify the IDrive schedule and restore separately.
 1. Finish project inventory for remaining Python projects before selecting
    their environment managers.
 2. Apply and verify the optional additional-apps group, including Audacity,
-   Picard, and the selected writing/scanning package set.
-3. Decide Zoom's artifact/update policy and Calibre's upstream binary strategy.
-4. Keep the Resolute VM package checks and convergence tests separate from the
+   Picard, Calibre, and the selected writing/scanning package set.
+3. Keep the Resolute VM package checks and convergence tests separate from the
    physical laptop live-boot/hardware gate. Do not upgrade the Focal host as
    part of this inventory work.

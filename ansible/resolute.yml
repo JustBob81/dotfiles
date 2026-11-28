@@ -36,6 +36,8 @@
         - texlive-luatex
         - texlive-pictures
         - texlive-xetex
+        - binutils
+        - gnupg
         - remmina
         - remmina-plugin-rdp
         - remmina-plugin-vnc
@@ -44,8 +46,15 @@
         - asunder
         - flatpak
         - libfuse2t64
+        - libegl1
+        - libopengl0
+        - libxcb-cursor0
+        - libxcb-xinerama0
         - libreoffice
+        - python3
         - simple-scan
+        - xdg-utils
+        - xz-utils
       mongodb:
         - mongodb-org
     laptop_enabled_package_groups: [base]
@@ -61,9 +70,25 @@
     laptop_manage_spotify: false
     laptop_manage_parabolic: false
     laptop_manage_additional_apps: false
+    laptop_manage_calibre: false
     laptop_manage_gnome_appearance: false
+    laptop_manage_zoom: false
     laptop_manage_minikube: false
     laptop_manage_emacs: false
+    laptop_calibre_install_root: "{{ ansible_facts['env']['HOME'] }}/.local/opt/calibre"
+    laptop_calibre_install_dir: "{{ laptop_calibre_install_root }}/{{ laptop_application_packages.calibre.version }}"
+    laptop_calibre_launcher: "{{ ansible_facts['env']['HOME'] }}/.local/bin/calibre"
+    laptop_calibre_desktop_file: "{{ ansible_facts['env']['HOME'] }}/.local/share/applications/calibre.desktop"
+    laptop_calibre_marker_content: "Managed by dotfiles: Calibre {{ laptop_application_packages.calibre.version }}\n"
+    laptop_calibre_desktop_content: |
+      [Desktop Entry]
+      Type=Application
+      Name=Calibre
+      Comment=E-book library management
+      Exec={{ ansible_facts['env']['HOME'] }}/.local/bin/calibre %F
+      Icon=application-epub+zip
+      Terminal=false
+      Categories=Office;Utility;
   pre_tasks:
     - name: Require the maintained Resolute Ansible runtime
       ansible.builtin.assert:

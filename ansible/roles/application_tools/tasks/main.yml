@@ -17,6 +17,8 @@
     laptop_manage_albert | default(false) | bool or
     laptop_manage_chrome | default(false) | bool or
     laptop_manage_parabolic | default(false) | bool or
+    laptop_manage_zoom | default(false) | bool or
+    laptop_manage_calibre | default(false) | bool or
     laptop_manage_additional_apps | default(false) | bool
 
 - name: Preview Flatpak prerequisite for MusicBrainz Picard
@@ -1148,6 +1150,256 @@
       ansible_facts.packages[laptop_application_packages.bruno.package_name][0].version
       != laptop_application_packages.bruno.version
 
+- name: Ensure tools for official Zoom package verification are available
+  ansible.builtin.apt:
+    name:
+      - binutils
+      - gnupg
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when: laptop_manage_zoom | default(false) | bool
+
+- name: Read the installed Zoom package version
+  ansible.builtin.set_fact:
+    laptop_zoom_installed_version: >-
+      {{ ansible_facts.packages['zoom'][0].version
+         if 'zoom' in ansible_facts.packages else '' }}
+  when: laptop_manage_zoom | default(false) | bool
+
+- name: Select whether the pinned Zoom package needs installation
+  ansible.builtin.set_fact:
+    laptop_zoom_needs_install: >-
+      {{ laptop_zoom_installed_version != laptop_application_packages.zoom.version }}
+  when: laptop_manage_zoom | default(false) | bool
+
+- name: Refuse to downgrade a newer Zoom installation
+  ansible.builtin.command:
+    argv:
+      - dpkg
+      - --compare-versions
+      - "{{ laptop_zoom_installed_version }}"
+      - gt
+      - "{{ laptop_application_packages.zoom.version }}"
+  register: laptop_zoom_is_newer
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_installed_version | length > 0
+    - laptop_zoom_installed_version != laptop_application_packages.zoom.version
+
+- name: Preserve a Zoom version newer than the declared package
+  ansible.builtin.assert:
+    that:
+      - laptop_zoom_is_newer.rc != 0
+    fail_msg: >-
+      Installed Zoom {{ laptop_zoom_installed_version }} is newer than the
+      declared {{ laptop_application_packages.zoom.version }}. Update the pinned
+      Zoom declaration after reviewing its release and signing key.
+  when:
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_installed_version | length > 0
+    - laptop_zoom_installed_version != laptop_application_packages.zoom.version
+
+- name: Preview missing or outdated signed Zoom package
+  ansible.builtin.debug:
+    msg: >-
+      Would install Zoom {{ laptop_application_packages.zoom.version }} from
+      Zoom's versioned DEB after verifying the vendor signing key fingerprint
+      and dpkg-sig signature.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Inspect the cached signed Zoom package
+  ansible.builtin.stat:
+    path: "/var/cache/dotfiles/zoom_{{ laptop_application_packages.zoom.version }}_amd64.deb"
+  register: laptop_zoom_artifact
+  when:
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Create the managed Zoom package cache
+  ansible.builtin.file:
+    path: /var/cache/dotfiles
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Create a temporary keyring for Zoom package verification
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: dotfiles-zoom-verify-
+  register: laptop_zoom_verify_dir
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Download Zoom's current package signing key with retries
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.zoom.key_url }}"
+    dest: "{{ laptop_zoom_verify_dir.path }}/zoom-signing-key.pub"
+    mode: "0600"
+    timeout: 30
+  register: laptop_zoom_key_download
+  retries: 3
+  delay: 5
+  until: laptop_zoom_key_download is succeeded
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Read the Zoom signing key fingerprint
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - "{{ laptop_zoom_verify_dir.path }}/zoom-signing-key.pub"
+  register: laptop_zoom_signing_key
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Require the reviewed Zoom signing key identity
+  ansible.builtin.assert:
+    that:
+      - laptop_application_packages.zoom.key_fingerprint in laptop_zoom_signing_key.stdout
+    fail_msg: >-
+      Zoom's signing key did not match the documented fingerprint. The package
+      will not be installed.
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Create an isolated temporary GnuPG home for Zoom
+  ansible.builtin.file:
+    path: "{{ laptop_zoom_verify_dir.path }}/gnupg"
+    state: directory
+    mode: "0700"
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Import the verified Zoom signing key into the temporary keyring
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ laptop_zoom_verify_dir.path }}/gnupg"
+      - --import
+      - "{{ laptop_zoom_verify_dir.path }}/zoom-signing-key.pub"
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Download the pinned official Zoom DEB when not already cached
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.zoom.deb_url }}"
+    dest: "/var/cache/dotfiles/zoom_{{ laptop_application_packages.zoom.version }}_amd64.deb"
+    owner: root
+    group: root
+    mode: "0644"
+    timeout: 120
+  become: true
+  register: laptop_zoom_package_download
+  retries: 3
+  delay: 10
+  until: laptop_zoom_package_download is succeeded
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+    - not laptop_zoom_artifact.stat.exists
+
+- name: Verify the Zoom DEB signature and signed archive member hashes
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ playbook_dir }}/../tooling/verify_dpkg_sig.py"
+      - "/var/cache/dotfiles/zoom_{{ laptop_application_packages.zoom.version }}_amd64.deb"
+      - "{{ laptop_zoom_verify_dir.path }}/gnupg"
+      - "{{ laptop_application_packages.zoom.key_fingerprint }}"
+  register: laptop_zoom_signature
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Inspect the signed Zoom DEB package identity
+  ansible.builtin.command:
+    argv:
+      - dpkg-deb
+      - --show
+      - '--showformat=${Package}\n${Version}\n'
+      - "/var/cache/dotfiles/zoom_{{ laptop_application_packages.zoom.version }}_amd64.deb"
+  register: laptop_zoom_deb_identity
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Require the pinned Zoom package name and version
+  ansible.builtin.assert:
+    that:
+      - laptop_zoom_deb_identity.stdout_lines | length == 2
+      - laptop_zoom_deb_identity.stdout_lines[0] == laptop_application_packages.zoom.package_name
+      - laptop_zoom_deb_identity.stdout_lines[1] == laptop_application_packages.zoom.version
+    fail_msg: The signed Zoom DEB does not match the declared package name and version.
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Install or update Zoom from the verified official DEB
+  ansible.builtin.apt:
+    deb: "/var/cache/dotfiles/zoom_{{ laptop_application_packages.zoom.version }}_amd64.deb"
+    state: present
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
+- name: Remove the temporary Zoom verification keyring
+  ansible.builtin.file:
+    path: "{{ laptop_zoom_verify_dir.path }}"
+    state: absent
+  when:
+    - not ansible_check_mode
+    - laptop_manage_zoom | default(false) | bool
+    - laptop_zoom_needs_install | bool
+
 - name: Ensure Snap is available for explicitly selected CLIs
   ansible.builtin.apt:
     name: snapd
@@ -1378,3 +1630,335 @@
     auto_install_module_deps: false
   become: true
   when: laptop_manage_mongodb | bool and not ansible_check_mode
+
+- name: Preview Calibre user installation
+  ansible.builtin.debug:
+    msg: >-
+      Would install Calibre {{ laptop_application_packages.calibre.version }} in
+      the user-owned {{ laptop_calibre_install_dir }} directory after checking
+      its detached signature against the pinned publisher key.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+
+- name: Ensure Calibre runtime libraries and archive tools are present
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - gnupg
+      - libegl1
+      - libopengl0
+      - libxcb-cursor0
+      - libxcb-xinerama0
+      - python3
+      - xdg-utils
+      - xz-utils
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+
+- name: Inspect Calibre installation and user launchers
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    checksum_algorithm: sha256
+    follow: false
+  loop:
+    - "{{ laptop_calibre_install_dir }}"
+    - "{{ laptop_calibre_install_dir }}/.dotfiles-managed"
+    - "{{ laptop_calibre_launcher }}"
+    - "{{ laptop_calibre_desktop_file }}"
+  register: laptop_calibre_paths
+  when: laptop_manage_calibre | default(false) | bool
+
+- name: Read the Calibre installation ownership marker
+  ansible.builtin.slurp:
+    src: "{{ laptop_calibre_install_dir }}/.dotfiles-managed"
+  register: laptop_calibre_marker
+  when:
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_paths.results[1].stat.exists
+
+- name: Preserve unmarked Calibre installations and conflicting launchers
+  ansible.builtin.assert:
+    that:
+      - >-
+        not laptop_calibre_paths.results[0].stat.exists or
+        (laptop_calibre_paths.results[1].stat.exists and
+         laptop_calibre_marker.content | b64decode == laptop_calibre_marker_content and
+         laptop_calibre_paths.results[0].stat.isdir)
+      - >-
+        not laptop_calibre_paths.results[2].stat.exists or
+        (laptop_calibre_paths.results[2].stat.islnk and
+         laptop_calibre_paths.results[2].stat.lnk_source.startswith(laptop_calibre_install_root ~ '/') and
+         laptop_calibre_paths.results[2].stat.lnk_source.endswith('/calibre'))
+      - >-
+        not laptop_calibre_paths.results[3].stat.exists or
+        (laptop_calibre_paths.results[3].stat.isreg and
+         laptop_calibre_paths.results[3].stat.checksum == (laptop_calibre_desktop_content | hash('sha256')))
+    fail_msg: >-
+      A Calibre path already contains content not owned by this profile. Inspect
+      it manually; the provisioning role will preserve it.
+  when: laptop_manage_calibre | default(false) | bool
+
+- name: Select whether the pinned Calibre release is missing
+  ansible.builtin.set_fact:
+    laptop_calibre_needs_install: "{{ not laptop_calibre_paths.results[0].stat.exists }}"
+  when: laptop_manage_calibre | default(false) | bool
+
+- name: Create the Calibre version cache and install root
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ ansible_facts['env']['HOME'] }}/.cache/dotfiles/calibre/{{ laptop_application_packages.calibre.version }}", mode: "0700" }
+    - { path: "{{ laptop_calibre_install_root }}", mode: "0755" }
+    - { path: "{{ ansible_facts['env']['HOME'] }}/.local/bin", mode: "0755" }
+    - { path: "{{ ansible_facts['env']['HOME'] }}/.local/share/applications", mode: "0755" }
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Download the pinned Calibre archive with retries
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.calibre.archive_url }}"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.cache/dotfiles/calibre/{{ laptop_application_packages.calibre.version }}/calibre-{{ laptop_application_packages.calibre.version }}-x86_64.txz"
+    mode: "0600"
+    timeout: 120
+  register: laptop_calibre_archive_download
+  retries: 3
+  delay: 10
+  until: laptop_calibre_archive_download is succeeded
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Download the Calibre detached signature with retries
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.calibre.signature_url }}"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.cache/dotfiles/calibre/{{ laptop_application_packages.calibre.version }}/calibre-{{ laptop_application_packages.calibre.version }}-x86_64.txz.sig"
+    mode: "0600"
+    timeout: 30
+  register: laptop_calibre_signature_download
+  retries: 3
+  delay: 5
+  until: laptop_calibre_signature_download is succeeded
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Create isolated temporary GnuPG home for Calibre verification
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: dotfiles-calibre-verify-
+  register: laptop_calibre_gnupg
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Download the Calibre signing key with retries
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.calibre.key_url }}"
+    dest: "{{ laptop_calibre_gnupg.path }}/kovid.gpg"
+    mode: "0600"
+    timeout: 30
+  register: laptop_calibre_key_download
+  retries: 3
+  delay: 5
+  until: laptop_calibre_key_download is succeeded
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Read the downloaded Calibre signing key fingerprint
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --show-keys
+      - --with-colons
+      - --fingerprint
+      - "{{ laptop_calibre_gnupg.path }}/kovid.gpg"
+  register: laptop_calibre_key_details
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Require the reviewed Calibre signing key fingerprint
+  ansible.builtin.assert:
+    that:
+      - laptop_application_packages.calibre.key_fingerprint in laptop_calibre_key_details.stdout
+    fail_msg: The Calibre signing key fingerprint did not match the reviewed publisher key.
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Import the verified Calibre signing key into the temporary keyring
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ laptop_calibre_gnupg.path }}"
+      - --import
+      - "{{ laptop_calibre_gnupg.path }}/kovid.gpg"
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Verify the detached Calibre archive signature
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --homedir
+      - "{{ laptop_calibre_gnupg.path }}"
+      - --verify
+      - "{{ ansible_facts['env']['HOME'] }}/.cache/dotfiles/calibre/{{ laptop_application_packages.calibre.version }}/calibre-{{ laptop_application_packages.calibre.version }}-x86_64.txz.sig"
+      - "{{ ansible_facts['env']['HOME'] }}/.cache/dotfiles/calibre/{{ laptop_application_packages.calibre.version }}/calibre-{{ laptop_application_packages.calibre.version }}-x86_64.txz"
+  register: laptop_calibre_signature_check
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Create a temporary versioned Calibre extraction directory
+  ansible.builtin.tempfile:
+    state: directory
+    path: "{{ laptop_calibre_install_root }}"
+    prefix: .calibre-stage-
+  register: laptop_calibre_stage
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Extract the signed Calibre archive into a temporary directory
+  ansible.builtin.unarchive:
+    src: "{{ ansible_facts['env']['HOME'] }}/.cache/dotfiles/calibre/{{ laptop_application_packages.calibre.version }}/calibre-{{ laptop_application_packages.calibre.version }}-x86_64.txz"
+    dest: "{{ laptop_calibre_stage.path }}"
+    remote_src: true
+    extra_opts: [--no-same-owner]
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Require the extracted Calibre launcher
+  ansible.builtin.stat:
+    path: "{{ laptop_calibre_stage.path }}/calibre"
+  register: laptop_calibre_staged_binary
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Require a valid Calibre archive layout
+  ansible.builtin.assert:
+    that:
+      - laptop_calibre_staged_binary.stat.exists
+      - laptop_calibre_staged_binary.stat.executable
+    fail_msg: The verified Calibre archive did not contain its expected executable.
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Mark the staged Calibre installation as dotfiles-managed
+  ansible.builtin.copy:
+    dest: "{{ laptop_calibre_stage.path }}/.dotfiles-managed"
+    content: "{{ laptop_calibre_marker_content }}"
+    mode: "0644"
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Publish the verified Calibre version atomically
+  ansible.builtin.command:
+    argv:
+      - mv
+      - --
+      - "{{ laptop_calibre_stage.path }}"
+      - "{{ laptop_calibre_install_dir }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Publish the managed Calibre command link
+  ansible.builtin.file:
+    src: "{{ laptop_calibre_install_dir }}/calibre"
+    dest: "{{ laptop_calibre_launcher }}"
+    state: link
+    force: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+
+- name: Publish the managed Calibre desktop launcher
+  ansible.builtin.copy:
+    dest: "{{ laptop_calibre_desktop_file }}"
+    content: "{{ laptop_calibre_desktop_content }}"
+    mode: "0644"
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+
+- name: Remove the temporary Calibre verification keyring
+  ansible.builtin.file:
+    path: "{{ laptop_calibre_gnupg.path }}"
+    state: absent
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+    - laptop_calibre_needs_install | bool
+
+- name: Verify the installed Calibre version
+  ansible.builtin.command:
+    argv:
+      - "{{ laptop_calibre_launcher }}"
+      - --version
+  register: laptop_calibre_version_check
+  changed_when: false
+  check_mode: false
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool
+
+- name: Require the installed Calibre version to match policy
+  ansible.builtin.assert:
+    that:
+      - >-
+        (laptop_application_packages.calibre.version | regex_replace('\.0$', '')) in
+        ((laptop_calibre_version_check.stdout | default('')) ~ '\n' ~
+         (laptop_calibre_version_check.stderr | default('')))
+    fail_msg: >-
+      The installed Calibre executable did not report the pinned version
+      {{ laptop_application_packages.calibre.version }}. Output was:
+      stdout={{ laptop_calibre_version_check.stdout | default('') | to_json }}
+      stderr={{ laptop_calibre_version_check.stderr | default('') | to_json }}
+  when:
+    - not ansible_check_mode
+    - laptop_manage_calibre | default(false) | bool

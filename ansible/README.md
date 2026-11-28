@@ -47,14 +47,22 @@ The additional confirmed applications are a separate opt-in:
 ./ansible/run-resolute --apply --install-additional-apps
 ```
 
-This installs Asunder, LibreOffice, Simple Scan, Audacity, and MusicBrainz
-Picard. Pandoc and the selected TeX Live subset are part of the main desktop
+This installs Asunder, LibreOffice, Simple Scan, Audacity, MusicBrainz Picard,
+and Calibre. Pandoc and the selected TeX Live subset are part of the main desktop
 package group enabled by `--install-apps`, because Emacs uses them for writing
 and document export. If this is a fresh install, run this alongside
 `--install-apps` to provision the full desktop baseline.
-Zoom and Calibre have not yet been added; see
-[`../docs/software-inventory.md`](../docs/software-inventory.md) for their
-remaining source and update-policy work.
+Zoom is included in the main `--install-apps` group as a version-pinned official
+DEB. Its Zoom signature and signed package-member hashes are verified before
+installation using a small local verifier, since Resolute does not publish the
+`dpkg-sig` package Zoom documents. Updates require reviewing and changing the
+package manifest. Calibre 9.19.0 is installed into a versioned user directory
+from its official archive after checking the detached signature and pinned full
+GPG fingerprint. The launcher and desktop entry are user-local. Updates require
+reviewing the release and updating the manifest; old versioned binaries remain
+available for manual removal. Calibre library and settings are user data, not
+part of this repository. See
+[`../docs/software-inventory.md`](../docs/software-inventory.md).
 
 The main `--install-apps` flow also sets GNOME's per-user dark appearance
 preference and Ubuntu's `Yaru-dark` GTK theme when run from a logged-in GNOME
