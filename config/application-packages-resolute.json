@@ -30,5 +30,17 @@
     "remote_name": "flathub",
     "remote_url": "https://flathub.org/repo/flathub.flatpakrepo",
     "branch": "stable"
+  },
+  "audacity": {
+    "version": "4.0.2",
+    "appimage_url": "https://github.com/audacity/audacity/releases/download/Audacity-4.0.2/audacity-linux-4.0.2-x86_64.AppImage",
+    "sha256": "a5f8787aa13cdb500a60fc013403b986776876b960cca962bc6e7fff066172f3",
+    "appimage_name": "audacity-linux-4.0.2-x86_64.AppImage"
+  },
+  "picard": {
+    "app_id": "org.musicbrainz.Picard",
+    "remote_name": "flathub",
+    "remote_url": "https://flathub.org/repo/flathub.flatpakrepo",
+    "branch": "stable"
   }
 }

@@ -16,7 +16,277 @@
     laptop_manage_ulauncher | default(false) | bool or
     laptop_manage_albert | default(false) | bool or
     laptop_manage_chrome | default(false) | bool or
-    laptop_manage_parabolic | default(false) | bool
+    laptop_manage_parabolic | default(false) | bool or
+    laptop_manage_additional_apps | default(false) | bool
+
+- name: Preview Flatpak prerequisite for MusicBrainz Picard
+  ansible.builtin.debug:
+    msg: Install Ubuntu's Flatpak package, configure the user's Flathub remote, and install Picard.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - "'flatpak' not in ansible_facts.packages"
+
+- name: Install Flatpak from Ubuntu before provisioning Picard
+  ansible.builtin.apt:
+    name: flatpak
+    state: present
+    update_cache: false
+    fail_on_autoremove: true
+    auto_install_module_deps: false
+  become: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - "'flatpak' not in ansible_facts.packages"
+
+- name: Refresh package facts after installing Flatpak for Picard
+  ansible.builtin.package_facts:
+    manager: apt
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - "'flatpak' not in ansible_facts.packages"
+
+- name: Require supported Audacity AppImage architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.architecture == 'x86_64'
+    fail_msg: The declared checksum-pinned Audacity AppImage currently targets x86_64.
+  when: laptop_manage_additional_apps | default(false) | bool
+
+- name: Inspect the Audacity AppImage and launcher paths
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
+    - "{{ ansible_env.HOME }}/.local/bin/audacity"
+    - "{{ ansible_env.HOME }}/.local/share/applications/audacity.desktop"
+  register: laptop_audacity_paths
+  when: laptop_manage_additional_apps | default(false) | bool
+
+- name: Preserve conflicting Audacity AppImage, command, or desktop entry
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item == 0 and (not laptop_audacity_paths.results[item].stat.exists or
+          laptop_audacity_paths.results[item].stat.checksum == laptop_application_packages.audacity.sha256)) or
+        (item == 1 and (not laptop_audacity_paths.results[item].stat.exists or
+          (laptop_audacity_paths.results[item].stat.islnk and
+           laptop_audacity_paths.results[item].stat.lnk_source ==
+           ansible_env.HOME ~ '/.local/opt/audacity/' ~ laptop_application_packages.audacity.version ~ '/' ~ laptop_application_packages.audacity.appimage_name))) or
+        (item == 2 and (not laptop_audacity_paths.results[item].stat.exists or
+          laptop_audacity_paths.results[item].stat.checksum == (laptop_audacity_desktop_content | hash('sha256'))))
+    fail_msg: >-
+      An Audacity-managed path contains conflicting content. Review it manually;
+      the provisioning role will preserve it.
+  loop: [0, 1, 2]
+  vars:
+    laptop_audacity_desktop_content: |
+      [Desktop Entry]
+      Type=Application
+      Name=Audacity
+      Comment=Audio editor and recorder
+      Exec={{ ansible_env.HOME }}/.local/bin/audacity %F
+      Icon=multimedia-audio-player
+      Terminal=false
+      Categories=AudioVideo;Audio;AudioVideoEditing;
+      MimeType=audio/mpeg;audio/wav;audio/x-wav;audio/flac;audio/ogg;
+  when: laptop_manage_additional_apps | default(false) | bool
+
+- name: Preview missing checksum-pinned Audacity AppImage
+  ansible.builtin.debug:
+    msg: >-
+      Would install Audacity {{ laptop_application_packages.audacity.version }}
+      from its official SHA256-published x86_64 AppImage.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - not laptop_audacity_paths.results[0].stat.exists
+
+- name: Create the user-local Audacity AppImage directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}"
+    state: directory
+    mode: "0755"
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - not laptop_audacity_paths.results[0].stat.exists
+
+- name: Download checksum-verified official Audacity AppImage
+  ansible.builtin.get_url:
+    url: "{{ laptop_application_packages.audacity.appimage_url }}"
+    dest: "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
+    checksum: "sha256:{{ laptop_application_packages.audacity.sha256 }}"
+    mode: "0755"
+    timeout: 60
+  register: laptop_audacity_download
+  retries: 3
+  delay: 10
+  until: laptop_audacity_download is succeeded
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - not laptop_audacity_paths.results[0].stat.exists
+
+- name: Create user-local directories for the Audacity launcher
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ ansible_env.HOME }}/.local/bin"
+    - "{{ ansible_env.HOME }}/.local/share/applications"
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+
+- name: Link the managed Audacity command
+  ansible.builtin.file:
+    src: "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
+    dest: "{{ ansible_env.HOME }}/.local/bin/audacity"
+    state: link
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - not laptop_audacity_paths.results[1].stat.exists
+
+- name: Add the Audacity desktop launcher when absent
+  ansible.builtin.copy:
+    dest: "{{ ansible_env.HOME }}/.local/share/applications/audacity.desktop"
+    content: "{{ laptop_audacity_desktop_content }}"
+    mode: "0644"
+  vars:
+    laptop_audacity_desktop_content: |
+      [Desktop Entry]
+      Type=Application
+      Name=Audacity
+      Comment=Audio editor and recorder
+      Exec={{ ansible_env.HOME }}/.local/bin/audacity %F
+      Icon=multimedia-audio-player
+      Terminal=false
+      Categories=AudioVideo;Audio;AudioVideoEditing;
+      MimeType=audio/mpeg;audio/wav;audio/x-wav;audio/flac;audio/ogg;
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - not laptop_audacity_paths.results[2].stat.exists
+
+- name: Inspect the user's Flathub remotes for Picard
+  ansible.builtin.command:
+    argv: [flatpak, remotes, --user, "--columns=name,url"]
+  register: laptop_picard_remotes
+  changed_when: false
+  check_mode: false
+  when:
+    - laptop_manage_additional_apps | default(false) | bool
+    - not (ansible_check_mode and 'flatpak' not in ansible_facts.packages)
+
+- name: Refuse a conflicting Flathub remote definition for Picard
+  ansible.builtin.assert:
+    that:
+      - item.split() | length > 1
+      - item.split()[1] in ['https://dl.flathub.org/repo/', laptop_application_packages.picard.remote_url]
+    fail_msg: Existing Flathub remote name uses a different URL; review it manually.
+  loop: "{{ laptop_picard_remotes.stdout_lines | default([]) }}"
+  when:
+    - laptop_manage_additional_apps | default(false) | bool
+    - item.split() | length > 0
+    - item.split()[0] == laptop_application_packages.picard.remote_name
+
+- name: Preview Flathub setup for Picard
+  ansible.builtin.debug:
+    msg: Configure the user's Flathub remote for MusicBrainz Picard.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - "'flatpak' in ansible_facts.packages"
+    - laptop_picard_remotes.stdout_lines | default([]) | select('match', '^flathub\\s') | list | length == 0
+
+- name: Add the user's Flathub remote for Picard when absent
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - remote-add
+      - --user
+      - --if-not-exists
+      - "{{ laptop_application_packages.picard.remote_name }}"
+      - "{{ laptop_application_packages.picard.remote_url }}"
+  register: laptop_picard_remote_add
+  retries: 3
+  delay: 10
+  until: laptop_picard_remote_add.get('rc', 1) == 0
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - laptop_picard_remotes.stdout_lines | select('match', '^flathub\\s') | list | length == 0
+
+- name: Inspect an existing user MusicBrainz Picard installation
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - info
+      - --user
+      - --show-origin
+      - "{{ laptop_application_packages.picard.app_id }}"
+  register: laptop_picard_origin
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - laptop_manage_additional_apps | default(false) | bool
+    - not (ansible_check_mode and 'flatpak' not in ansible_facts.packages)
+
+- name: Preserve a MusicBrainz Picard installation from another Flatpak remote
+  ansible.builtin.assert:
+    that:
+      - laptop_picard_origin.stdout | trim == laptop_application_packages.picard.remote_name
+    fail_msg: >-
+      MusicBrainz Picard is installed from another Flatpak remote. Review that
+      installation manually; Ansible will not replace it.
+  when:
+    - laptop_manage_additional_apps | default(false) | bool
+    - laptop_picard_origin is defined
+    - laptop_picard_origin.rc == 0
+
+- name: Preview missing MusicBrainz Picard installation
+  ansible.builtin.debug:
+    msg: Install MusicBrainz Picard from Flathub's stable branch.
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - laptop_picard_origin is defined
+    - laptop_picard_origin.rc is defined
+    - laptop_picard_origin.rc != 0
+
+- name: Install MusicBrainz Picard from Flathub stable
+  ansible.builtin.command:
+    argv:
+      - flatpak
+      - install
+      - --user
+      - --noninteractive
+      - --assumeyes
+      - "{{ laptop_application_packages.picard.remote_name }}"
+      - "{{ laptop_application_packages.picard.app_id }}//{{ laptop_application_packages.picard.branch }}"
+  register: laptop_picard_install
+  retries: 3
+  delay: 10
+  until: laptop_picard_install.get('rc', 1) == 0
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - laptop_manage_additional_apps | default(false) | bool
+    - laptop_picard_origin is defined
+    - laptop_picard_origin.rc is defined
+    - laptop_picard_origin.rc != 0
 
 - name: Preview requested Google Chrome installation
   ansible.builtin.debug:

@@ -40,6 +40,22 @@ Firefox, confirm it under `about:policies`, then sign in and complete MFA by han
 LastPass extension versions follow Mozilla Add-ons updates; credentials are not
 managed by Ansible. The same flag is available through the Focal `ansible/run`.
 
+The additional confirmed applications are a separate opt-in:
+
+```sh
+./ansible/run-resolute --check --install-additional-apps
+./ansible/run-resolute --apply --install-additional-apps
+```
+
+This installs Asunder, LibreOffice, Simple Scan, Audacity, and MusicBrainz
+Picard. Pandoc and the selected TeX Live subset are part of the main desktop
+package group enabled by `--install-apps`, because Emacs uses them for writing
+and document export. If this is a fresh install, run this alongside
+`--install-apps` to provision the full desktop baseline.
+Zoom and Calibre have not yet been added; see
+[`../docs/software-inventory.md`](../docs/software-inventory.md) for their
+remaining source and update-policy work.
+
 The Resolute environment is `.hatch-resolute`, with Ansible Core 2.21 and
 Python 3.12 on the controller. It requires Ubuntu Resolute and a managed-host
 Python between 3.9 and 3.14. The regular `.hatch`, `ansible/run`, and Focal

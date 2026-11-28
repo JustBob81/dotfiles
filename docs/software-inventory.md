@@ -45,15 +45,32 @@ No software was installed or removed during this inventory.
 | Postman / Bruno | Postman Snap 9.31.30 installed; no Bruno installation found | Replace Postman with Bruno, using the official pinned `.deb` and SHA256 checksum. | Resolute `--install-apps` provisions Bruno 4.3.0 from the official GitHub release asset. Its release page reports the matching SHA256. Validate launch and import/workspace behavior in the VM before considering Postman retired there. The old host Postman is untouched. |
 | Thunderbird | Thunderbird 115.18 and locale packages installed | Exclude from the new setup. | Host leftovers are not part of this migration inventory. |
 | Wine | Wine 8.0.1, WineHQ packages, Winetricks, and `~/.wine` data present | Exclude Wine from the new setup. | Host leftovers are not part of this migration inventory. |
-| Calibre, TeX Live, Pandoc | Calibre installed under `/opt/calibre`; TeX Live full 2019; Pandoc 2.5 | Keep; TeX and Pandoc support Emacs writing workflows. | Not declared in the Resolute profile. Calibre uses a manual install location; choose reproducible install methods and a TeX package scope. |
+| Calibre, TeX Live, Pandoc | Calibre installed under `/opt/calibre`; TeX Live full 2019; Pandoc 2.5 | Keep; TeX and Pandoc support Emacs writing workflows. | Pandoc and a practical LaTeX/XeTeX/LuaTeX package set are part of the main Resolute desktop package group for Emacs writing and export. This does not reproduce the old full TeX Live installation or all of its documentation. Calibre remains for a separate source and update-policy decision. |
 | Remmina | APT Remmina 1.4.25 with RDP/VNC/secret plugins | Keep. | Resolute `--install-apps` installs Remmina and the Ubuntu archive's RDP, VNC, and secret plugins. Connection profiles and saved credentials remain user data and are not copied or committed. |
 
 ## Additional selected applications
 
-The user confirmed these should be included in the new setup: Audacity 3.7.9,
-MusicBrainz Picard 3.0.5, Zoom 7.1.5, Asunder, LibreOffice, and Simple Scan.
-Their current Snap package versions were read from mounted snap metadata where
-applicable. None is yet declared in the Resolute application profile.
+The user confirmed these should be included in the new setup: Audacity, MusicBrainz
+Picard, Zoom, Asunder, LibreOffice, and Simple Scan. The optional
+`--install-additional-apps` group provisions Audacity from its official,
+versioned, SHA256-verified AppImage; Picard from the Flathub stable branch; and
+Asunder, LibreOffice, and Simple Scan from Ubuntu's Resolute archive. Pandoc and
+a selected TeX Live engine/package set are in the main desktop package group.
+The TeX set includes recommended LaTeX,
+additional LaTeX packages, XeTeX, LuaTeX, pictures, and common fonts; it is much
+smaller than `texlive-full` and does not install the old full documentation set.
+Audacity's AppImage requires the Ubuntu FUSE 2 compatibility package. Picard's
+Flathub build is community packaged and is not marked verified by Flathub, though
+the MusicBrainz download page lists Flathub as a supported Linux distribution
+channel.
+
+Zoom and Calibre are not yet in this group. Zoom's official Linux distribution
+is a downloadable DEB rather than an APT repository, so updates would need an
+explicit version/checksum refresh policy. Calibre's upstream recommends its
+own binary installer and explicitly discourages the distribution package; its
+installer is a mutable script unless the release artifacts and installer are
+managed separately. These need dedicated provisioning work rather than being
+silently treated as archive packages.
 
 IDrive was configured manually and a backup/restore sample was verified earlier.
 Its installer, service state, backup schedule, and latest backup freshness are
@@ -64,9 +81,9 @@ data out of Git; verify the IDrive schedule and restore separately.
 
 1. Finish project inventory for remaining Python projects before selecting
    their environment managers.
-2. Add the agreed desktop applications to a separate optional Resolute group,
-   after selecting supported installation sources. Add Bruno and validate it
-   before retiring Postman from the new setup.
+2. Apply and verify the optional additional-apps group, including Audacity,
+   Picard, and the selected writing/scanning package set.
+3. Decide Zoom's artifact/update policy and Calibre's upstream binary strategy.
 4. Keep the Resolute VM package checks and convergence tests separate from the
    physical laptop live-boot/hardware gate. Do not upgrade the Focal host as
    part of this inventory work.

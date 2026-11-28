@@ -28,10 +28,24 @@
       desktop:
         - caffeine
         - flatpak
+        - pandoc
+        - latexmk
+        - texlive-fonts-recommended
+        - texlive-latex-extra
+        - texlive-latex-recommended
+        - texlive-luatex
+        - texlive-pictures
+        - texlive-xetex
         - remmina
         - remmina-plugin-rdp
         - remmina-plugin-vnc
         - remmina-plugin-secret
+      additional_apps:
+        - asunder
+        - flatpak
+        - libfuse2t64
+        - libreoffice
+        - simple-scan
       mongodb:
         - mongodb-org
     laptop_enabled_package_groups: [base]
@@ -46,6 +60,7 @@
     laptop_manage_gimp: false
     laptop_manage_spotify: false
     laptop_manage_parabolic: false
+    laptop_manage_additional_apps: false
     laptop_manage_minikube: false
     laptop_manage_emacs: false
   pre_tasks:

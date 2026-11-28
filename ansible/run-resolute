@@ -11,6 +11,7 @@ install_mongodb=false
 install_google_cloud=false
 provision_emacs=false
 provision_lastpass=false
+install_additional_apps=false
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --install-packages) install_packages=true ;;
@@ -20,7 +21,8 @@ while [[ $# -gt 0 ]]; do
         --install-google-cloud) install_google_cloud=true ;;
         --provision-emacs) provision_emacs=true ;;
         --provision-lastpass) provision_lastpass=true ;;
-        *) printf 'Unexpected argument. Usage: %s [--check|--apply|--syntax-check] [--install-packages] [--install-apps] [--install-albert] [--install-mongodb] [--install-google-cloud] [--provision-emacs] [--provision-lastpass]\n' "$0" >&2; exit 2 ;;
+        --install-additional-apps) install_additional_apps=true ;;
+        *) printf 'Unexpected argument. Usage: %s [--check|--apply|--syntax-check] [--install-packages] [--install-apps] [--install-additional-apps] [--install-albert] [--install-mongodb] [--install-google-cloud] [--provision-emacs] [--provision-lastpass]\n' "$0" >&2; exit 2 ;;
     esac
     shift
 done
@@ -50,6 +52,6 @@ if [[ ! -x "$target_python" ]]; then
     exit 1
 fi
 printf 'Resolute profile target interpreter: %s\n' "$target_python" >&2
-extra_vars=$(/usr/bin/python3 -c 'import json,sys; apps=sys.argv[2] == "true"; albert=sys.argv[3] == "true"; mongo=sys.argv[4] == "true"; cloud=sys.argv[5] == "true"; groups=["base"] + (["containers", "databases", "haskell", "desktop"] if apps else []) + (["mongodb"] if mongo else []); print(json.dumps({"laptop_manage_packages": any(x == "true" for x in sys.argv[1:5]), "laptop_enabled_package_groups": groups, "laptop_manage_kubectl": apps, "laptop_manage_minikube": apps, "laptop_manage_bruno": apps, "laptop_manage_ulauncher": apps and not albert, "laptop_manage_albert": albert, "laptop_manage_chrome": apps, "laptop_manage_firefox": apps, "laptop_manage_gimp": apps, "laptop_manage_spotify": apps, "laptop_manage_parabolic": apps, "laptop_manage_mongodb": mongo, "laptop_manage_google_cloud": cloud, "ansible_python_interpreter": sys.argv[6], "laptop_manage_emacs": sys.argv[7] == "true", "laptop_manage_lastpass_extension": apps or sys.argv[8] == "true"}))' "$install_packages" "$install_apps" "$install_albert" "$install_mongodb" "$install_google_cloud" "$target_python" "$provision_emacs" "$provision_lastpass")
+extra_vars=$(/usr/bin/python3 -c 'import json,sys; apps=sys.argv[2] == "true"; albert=sys.argv[3] == "true"; mongo=sys.argv[4] == "true"; cloud=sys.argv[5] == "true"; extras=sys.argv[9] == "true"; groups=["base"] + (["containers", "databases", "haskell", "desktop"] if apps else []) + (["additional_apps"] if extras else []) + (["mongodb"] if mongo else []); print(json.dumps({"laptop_manage_packages": any(x == "true" for x in sys.argv[1:6]) or extras, "laptop_enabled_package_groups": groups, "laptop_manage_kubectl": apps, "laptop_manage_minikube": apps, "laptop_manage_bruno": apps, "laptop_manage_ulauncher": apps and not albert, "laptop_manage_albert": albert, "laptop_manage_chrome": apps, "laptop_manage_firefox": apps, "laptop_manage_gimp": apps, "laptop_manage_spotify": apps, "laptop_manage_parabolic": apps, "laptop_manage_additional_apps": extras, "laptop_manage_mongodb": mongo, "laptop_manage_google_cloud": cloud, "ansible_python_interpreter": sys.argv[6], "laptop_manage_emacs": sys.argv[7] == "true", "laptop_manage_lastpass_extension": apps or sys.argv[8] == "true"}))' "$install_packages" "$install_apps" "$install_albert" "$install_mongodb" "$install_google_cloud" "$target_python" "$provision_emacs" "$provision_lastpass" "$install_additional_apps")
 exec "$playbook" -i "$base/inventories/local.yml" "$base/resolute.yml" \
     "${args[@]}" --extra-vars "$extra_vars"
