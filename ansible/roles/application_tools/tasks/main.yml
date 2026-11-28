@@ -61,9 +61,9 @@
     path: "{{ item }}"
     checksum_algorithm: sha256
   loop:
-    - "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
-    - "{{ ansible_env.HOME }}/.local/bin/audacity"
-    - "{{ ansible_env.HOME }}/.local/share/applications/audacity.desktop"
+    - "{{ ansible_facts['env']['HOME'] }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
+    - "{{ ansible_facts['env']['HOME'] }}/.local/bin/audacity"
+    - "{{ ansible_facts['env']['HOME'] }}/.local/share/applications/audacity.desktop"
   register: laptop_audacity_paths
   when: laptop_manage_additional_apps | default(false) | bool
 
@@ -76,7 +76,7 @@
         (item == 1 and (not laptop_audacity_paths.results[item].stat.exists or
           (laptop_audacity_paths.results[item].stat.islnk and
            laptop_audacity_paths.results[item].stat.lnk_source ==
-           ansible_env.HOME ~ '/.local/opt/audacity/' ~ laptop_application_packages.audacity.version ~ '/' ~ laptop_application_packages.audacity.appimage_name))) or
+           ansible_facts['env']['HOME'] ~ '/.local/opt/audacity/' ~ laptop_application_packages.audacity.version ~ '/' ~ laptop_application_packages.audacity.appimage_name))) or
         (item == 2 and (not laptop_audacity_paths.results[item].stat.exists or
           laptop_audacity_paths.results[item].stat.checksum == (laptop_audacity_desktop_content | hash('sha256'))))
     fail_msg: >-
@@ -89,7 +89,7 @@
       Type=Application
       Name=Audacity
       Comment=Audio editor and recorder
-      Exec={{ ansible_env.HOME }}/.local/bin/audacity %F
+      Exec={{ ansible_facts['env']['HOME'] }}/.local/bin/audacity %F
       Icon=multimedia-audio-player
       Terminal=false
       Categories=AudioVideo;Audio;AudioVideoEditing;
@@ -109,7 +109,7 @@
 
 - name: Create the user-local Audacity AppImage directory
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}"
+    path: "{{ ansible_facts['env']['HOME'] }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}"
     state: directory
     mode: "0755"
   when:
@@ -120,7 +120,7 @@
 - name: Download checksum-verified official Audacity AppImage
   ansible.builtin.get_url:
     url: "{{ laptop_application_packages.audacity.appimage_url }}"
-    dest: "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
     checksum: "sha256:{{ laptop_application_packages.audacity.sha256 }}"
     mode: "0755"
     timeout: 60
@@ -139,16 +139,16 @@
     state: directory
     mode: "0755"
   loop:
-    - "{{ ansible_env.HOME }}/.local/bin"
-    - "{{ ansible_env.HOME }}/.local/share/applications"
+    - "{{ ansible_facts['env']['HOME'] }}/.local/bin"
+    - "{{ ansible_facts['env']['HOME'] }}/.local/share/applications"
   when:
     - not ansible_check_mode
     - laptop_manage_additional_apps | default(false) | bool
 
 - name: Link the managed Audacity command
   ansible.builtin.file:
-    src: "{{ ansible_env.HOME }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
-    dest: "{{ ansible_env.HOME }}/.local/bin/audacity"
+    src: "{{ ansible_facts['env']['HOME'] }}/.local/opt/audacity/{{ laptop_application_packages.audacity.version }}/{{ laptop_application_packages.audacity.appimage_name }}"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.local/bin/audacity"
     state: link
   when:
     - not ansible_check_mode
@@ -157,7 +157,7 @@
 
 - name: Add the Audacity desktop launcher when absent
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.local/share/applications/audacity.desktop"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.local/share/applications/audacity.desktop"
     content: "{{ laptop_audacity_desktop_content }}"
     mode: "0644"
   vars:
@@ -166,7 +166,7 @@
       Type=Application
       Name=Audacity
       Comment=Audio editor and recorder
-      Exec={{ ansible_env.HOME }}/.local/bin/audacity %F
+      Exec={{ ansible_facts['env']['HOME'] }}/.local/bin/audacity %F
       Icon=multimedia-audio-player
       Terminal=false
       Categories=AudioVideo;Audio;AudioVideoEditing;
@@ -970,17 +970,17 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: "{{ ansible_user_id }}"
-    group: "{{ ansible_user_gid | default(ansible_user_id) }}"
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: "{{ ansible_facts['user_gid'] | default(ansible_facts['user_id']) }}"
     mode: "0755"
   loop:
-    - "{{ ansible_env.HOME }}/.config/albert"
-    - "{{ ansible_env.HOME }}/.config/albert/org.albert.extension.websearch"
+    - "{{ ansible_facts['env']['HOME'] }}/.config/albert"
+    - "{{ ansible_facts['env']['HOME'] }}/.config/albert/org.albert.extension.websearch"
   when: laptop_manage_albert | default(false) | bool
 
 - name: Seed Albert settings without replacing existing user configuration
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.config/albert/albert.conf"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.config/albert/albert.conf"
     content: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/albert/albert.conf') }}\n"
     force: false
     mode: "0600"
@@ -988,7 +988,7 @@
 
 - name: Seed Albert web searches without replacing existing user configuration
   ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.config/albert/org.albert.extension.websearch/engines.json"
+    dest: "{{ ansible_facts['env']['HOME'] }}/.config/albert/org.albert.extension.websearch/engines.json"
     content: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../config/albert/websearch-engines.json') }}\n"
     force: false
     mode: "0600"
@@ -1003,10 +1003,10 @@
   when:
     - laptop_manage_gnome_appearance | default(false) | bool
     - >-
-      ansible_env.XDG_CURRENT_DESKTOP is not defined or
-      'GNOME' not in ansible_env.XDG_CURRENT_DESKTOP or
-      ansible_env.DBUS_SESSION_BUS_ADDRESS is not defined or
-      ansible_env.XDG_RUNTIME_DIR is not defined
+      ansible_facts['env']['XDG_CURRENT_DESKTOP'] is not defined or
+      'GNOME' not in ansible_facts['env']['XDG_CURRENT_DESKTOP'] or
+      ansible_facts['env']['DBUS_SESSION_BUS_ADDRESS'] is not defined or
+      ansible_facts['env']['XDG_RUNTIME_DIR'] is not defined
 
 - name: Preview or apply the GNOME dark appearance preference
   ansible.builtin.command:
@@ -1022,10 +1022,10 @@
   check_mode: false
   when:
     - laptop_manage_gnome_appearance | default(false) | bool
-    - ansible_env.XDG_CURRENT_DESKTOP is defined
-    - "'GNOME' in ansible_env.XDG_CURRENT_DESKTOP"
-    - ansible_env.DBUS_SESSION_BUS_ADDRESS is defined
-    - ansible_env.XDG_RUNTIME_DIR is defined
+    - ansible_facts['env']['XDG_CURRENT_DESKTOP'] is defined
+    - "'GNOME' in ansible_facts['env']['XDG_CURRENT_DESKTOP']"
+    - ansible_facts['env']['DBUS_SESSION_BUS_ADDRESS'] is defined
+    - ansible_facts['env']['XDG_RUNTIME_DIR'] is defined
 
 - name: Preview the GNOME launcher shortcut setup when no GNOME session is available
   ansible.builtin.debug:
@@ -1037,9 +1037,9 @@
   when:
     - laptop_manage_ulauncher | default(false) | bool or laptop_manage_albert | default(false) | bool
     - >-
-      ansible_env.XDG_CURRENT_DESKTOP is not defined or
-      'GNOME' not in ansible_env.XDG_CURRENT_DESKTOP or
-      ansible_env.DBUS_SESSION_BUS_ADDRESS is not defined
+      ansible_facts['env']['XDG_CURRENT_DESKTOP'] is not defined or
+      'GNOME' not in ansible_facts['env']['XDG_CURRENT_DESKTOP'] or
+      ansible_facts['env']['DBUS_SESSION_BUS_ADDRESS'] is not defined
 
 - name: Preview or apply the GNOME shortcut for the selected launcher
   ansible.builtin.command:
@@ -1055,9 +1055,9 @@
   check_mode: false
   when:
     - laptop_manage_ulauncher | default(false) | bool or laptop_manage_albert | default(false) | bool
-    - ansible_env.XDG_CURRENT_DESKTOP is defined
-    - "'GNOME' in ansible_env.XDG_CURRENT_DESKTOP"
-    - ansible_env.DBUS_SESSION_BUS_ADDRESS is defined
+    - ansible_facts['env']['XDG_CURRENT_DESKTOP'] is defined
+    - "'GNOME' in ansible_facts['env']['XDG_CURRENT_DESKTOP']"
+    - ansible_facts['env']['DBUS_SESSION_BUS_ADDRESS'] is defined
 
 - name: Preview requested Bruno installation or update
   ansible.builtin.debug:
