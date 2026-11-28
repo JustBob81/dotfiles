@@ -61,6 +61,7 @@
     laptop_manage_spotify: false
     laptop_manage_parabolic: false
     laptop_manage_additional_apps: false
+    laptop_manage_gnome_appearance: false
     laptop_manage_minikube: false
     laptop_manage_emacs: false
   pre_tasks:

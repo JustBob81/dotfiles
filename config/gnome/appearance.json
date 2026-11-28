@@ -1,0 +1,7 @@
+{
+  "schema": "org.gnome.desktop.interface",
+  "settings": {
+    "color-scheme": "prefer-dark",
+    "gtk-theme": "Yaru-dark"
+  }
+}

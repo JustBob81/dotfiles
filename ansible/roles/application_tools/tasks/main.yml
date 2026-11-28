@@ -994,6 +994,39 @@
     mode: "0600"
   when: laptop_manage_albert | default(false) | bool
 
+- name: Explain deferred GNOME dark appearance setup without a user session
+  ansible.builtin.debug:
+    msg: >-
+      Dark appearance settings apply to the logged-in GNOME user. Run
+      tooling/gnome-appearance.py --config config/gnome/appearance.json --apply
+      from a GNOME terminal after login.
+  when:
+    - laptop_manage_gnome_appearance | default(false) | bool
+    - >-
+      ansible_env.XDG_CURRENT_DESKTOP is not defined or
+      'GNOME' not in ansible_env.XDG_CURRENT_DESKTOP or
+      ansible_env.DBUS_SESSION_BUS_ADDRESS is not defined or
+      ansible_env.XDG_RUNTIME_DIR is not defined
+
+- name: Preview or apply the GNOME dark appearance preference
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ playbook_dir }}/../tooling/gnome-appearance.py"
+      - --config
+      - "{{ playbook_dir }}/../config/gnome/appearance.json"
+      - "{{ '--check' if ansible_check_mode else '--apply' }}"
+  register: laptop_gnome_appearance
+  changed_when: (laptop_gnome_appearance.stdout | from_json).changed | default(false)
+  failed_when: laptop_gnome_appearance.rc != 0
+  check_mode: false
+  when:
+    - laptop_manage_gnome_appearance | default(false) | bool
+    - ansible_env.XDG_CURRENT_DESKTOP is defined
+    - "'GNOME' in ansible_env.XDG_CURRENT_DESKTOP"
+    - ansible_env.DBUS_SESSION_BUS_ADDRESS is defined
+    - ansible_env.XDG_RUNTIME_DIR is defined
+
 - name: Preview the GNOME launcher shortcut setup when no GNOME session is available
   ansible.builtin.debug:
     msg: >-

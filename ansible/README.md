@@ -56,6 +56,12 @@ Zoom and Calibre have not yet been added; see
 [`../docs/software-inventory.md`](../docs/software-inventory.md) for their
 remaining source and update-policy work.
 
+The main `--install-apps` flow also sets GNOME's per-user dark appearance
+preference and Ubuntu's `Yaru-dark` GTK theme when run from a logged-in GNOME
+terminal. Apps that follow the system preference will use dark mode; app-local
+appearance controls may still need separate configuration. See
+[`../docs/system-applications.md`](../docs/system-applications.md).
+
 The Resolute environment is `.hatch-resolute`, with Ansible Core 2.21 and
 Python 3.12 on the controller. It requires Ubuntu Resolute and a managed-host
 Python between 3.9 and 3.14. The regular `.hatch`, `ansible/run`, and Focal
